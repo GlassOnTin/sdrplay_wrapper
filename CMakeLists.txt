@@ -6,6 +6,15 @@ project(sdrplay_wrapper VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Set CMake policies for SWIG
+if(POLICY CMP0078)
+    cmake_policy(SET CMP0078 NEW)
+endif()
+if(POLICY CMP0086)
+    cmake_policy(SET CMP0086 NEW)
+endif()
 
 # Find SDRplay API
 find_path(SDRPLAY_API_INCLUDE_DIR
@@ -45,6 +54,8 @@ if(BUILD_PYTHON_BINDINGS)
 
     find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
     set_property(SOURCE swig/sdrplay.i PROPERTY CPLUSPLUS ON)
     set_property(SOURCE swig/sdrplay.i PROPERTY SWIG_MODULE_NAME sdrplay)
 
@@ -54,22 +65,19 @@ if(BUILD_PYTHON_BINDINGS)
         SOURCES swig/sdrplay.i
     )
 
-    target_include_directories(sdrplay_python
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${Python3_INCLUDE_DIRS}
+    set_target_properties(sdrplay_python PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "_sdrplay"
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
-    target_link_libraries(sdrplay_python
-        PRIVATE
-            sdrplay_wrapper
-            ${Python3_LIBRARIES}
+    target_include_directories(sdrplay_python PRIVATE
+        ${Python3_INCLUDE_DIRS}
     )
 
-    set_target_properties(sdrplay_python
-        PROPERTIES
-            OUTPUT_NAME _sdrplay
-            LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/python
+    target_link_libraries(sdrplay_python PRIVATE
+        sdrplay_wrapper
+        ${Python3_LIBRARIES}
     )
 endif()
 
@@ -90,7 +98,17 @@ if(BUILD_PYTHON_BINDINGS)
     install(TARGETS sdrplay_python
         LIBRARY DESTINATION ${Python3_SITEARCH}/sdrplay
     )
-    install(FILES ${CMAKE_BINARY_DIR}/python/sdrplay.py
+    install(FILES ${CMAKE_BINARY_DIR}/sdrplay.py
         DESTINATION ${Python3_SITEARCH}/sdrplay
     )
 endif()
+
+# Copy SWIG-generated files to package directory
+add_custom_command(TARGET sdrplay_python POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/_sdrplay.so
+        ${CMAKE_SOURCE_DIR}/sdrplay/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/sdrplay.py
+        ${CMAKE_SOURCE_DIR}/sdrplay/
+)

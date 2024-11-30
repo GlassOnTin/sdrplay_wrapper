@@ -1,52 +1,28 @@
 // sdrplay_wrapper.cpp
 #include "sdrplay_wrapper.h"
-#include "sdrplay_api.h"
-#include <mutex>
 #include <stdexcept>
 
 namespace sdrplay {
+namespace detail {
 
-// Private implementation structures
-struct Device::Impl {
-    sdrplay_api_DeviceT* device = nullptr;
-    sdrplay_api_DeviceParamsT* deviceParams = nullptr;
-    StreamCallback streamCallback;
-    GainCallback gainCallback;
-    PowerOverloadCallback powerCallback;
-    std::mutex callbackMutex;
-    std::string lastError;
-};
-
-struct DeviceParams::Impl {
-    Device* device;
-    sdrplay_api_DeviceParamsT* params;
-};
-
-struct RxChannelParams::Impl {
-    Device* device;
-    sdrplay_api_RxChannelParamsT* params;
-    bool isTunerB;
-};
-
-// Callback handlers
-static void StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
-                          unsigned int numSamples, unsigned int reset, void* cbContext) {
-    auto* device = static_cast<Device::Impl*>(cbContext);
-    std::lock_guard<std::mutex> lock(device->callbackMutex);
-    if (device->streamCallback) {
-        device->streamCallback(xi, xq, numSamples);
+void StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
+                    unsigned int numSamples, unsigned int reset, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
+    if (device->pimpl->streamCallback) {
+        device->pimpl->streamCallback(xi, xq, numSamples);
     }
 }
 
-static void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
-                         sdrplay_api_EventParamsT* params, void* cbContext) {
-    auto* device = static_cast<Device::Impl*>(cbContext);
-    std::lock_guard<std::mutex> lock(device->callbackMutex);
+void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
+                  sdrplay_api_EventParamsT* params, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
 
     switch (eventId) {
         case sdrplay_api_GainChange:
-            if (device->gainCallback) {
-                device->gainCallback(
+            if (device->pimpl->gainCallback) {
+                device->pimpl->gainCallback(
                     params->gainParams.gRdB,
                     params->gainParams.lnaGRdB,
                     params->gainParams.currGain
@@ -55,8 +31,8 @@ static void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT t
             break;
 
         case sdrplay_api_PowerOverloadChange:
-            if (device->powerCallback) {
-                device->powerCallback(
+            if (device->pimpl->powerCallback) {
+                device->pimpl->powerCallback(
                     params->powerOverloadParams.powerOverloadChangeType ==
                     sdrplay_api_Overload_Detected
                 );
@@ -64,6 +40,8 @@ static void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT t
             break;
     }
 }
+
+} // namespace detail
 
 // Device implementation
 Device::Device() : pimpl(new Impl()) {}
@@ -87,7 +65,19 @@ void Device::close() {
         sdrplay_api_ReleaseDevice(pimpl->device);
         pimpl->device = nullptr;
     }
-    sdrplay_api_Close();
+    //sdrplay_api_Close();
+}
+
+bool Device::releaseDevice() {
+    if (!pimpl->device) return false;
+
+    sdrplay_api_ErrT err = sdrplay_api_ReleaseDevice(pimpl->device);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return false;
+    }
+    pimpl->device = nullptr;
+    return true;
 }
 
 float Device::getApiVersion() const {
@@ -96,7 +86,17 @@ float Device::getApiVersion() const {
     return version;
 }
 
-std::vector<Device::DeviceInfo> Device::getAvailableDevices() {
+DeviceParams* Device::getDeviceParams() {
+    if (!pimpl->device) return nullptr;
+    return new DeviceParams(this);
+}
+
+RxChannelParams* Device::getRxChannelParams(bool isTunerB) {
+    if (!pimpl->device) return nullptr;
+    return new RxChannelParams(this, isTunerB);
+}
+
+std::vector<DeviceInfo> Device::getAvailableDevices() {
     std::vector<DeviceInfo> result;
     sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
     unsigned int numDevs;
@@ -153,11 +153,11 @@ bool Device::startStreaming(StreamCallback streamCb, GainCallback gainCb, PowerO
     pimpl->powerCallback = powerCb;
 
     sdrplay_api_CallbackFnsT callbacks;
-    callbacks.StreamACbFn = StreamACallback;
+    callbacks.StreamACbFn = &detail::StreamACallback;
     callbacks.StreamBCbFn = nullptr;
-    callbacks.EventCbFn = EventCallback;
+    callbacks.EventCbFn = &detail::EventCallback;
 
-    sdrplay_api_ErrT err = sdrplay_api_Init(pimpl->device->dev, &callbacks, pimpl.get());
+    sdrplay_api_ErrT err = sdrplay_api_Init(pimpl->device->dev, &callbacks, this);
     return (err == sdrplay_api_Success);
 }
 
@@ -172,8 +172,9 @@ std::string Device::getLastErrorMessage() const {
     return pimpl->lastError;
 }
 
-// Parameter class implementations
-DeviceParams::DeviceParams(Device* device) : pimpl(new Impl{device, device->pimpl->deviceParams}) {}
+// DeviceParams implementation
+DeviceParams::DeviceParams(Device* device)
+    : pimpl(new Impl(device, device->pimpl->deviceParams)) {}
 
 void DeviceParams::setSampleRate(double sampleRateHz) {
     if (pimpl->params && pimpl->params->devParams) {
@@ -181,20 +182,33 @@ void DeviceParams::setSampleRate(double sampleRateHz) {
     }
 }
 
+void DeviceParams::setPpm(double ppm) {
+    if (pimpl->params && pimpl->params->devParams) {
+        pimpl->params->devParams->ppm = ppm;
+    }
+}
+
 bool DeviceParams::update() {
     if (!pimpl->device->pimpl->device) return false;
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Dev_Fs |
+            sdrplay_api_Update_Dev_Ppm
+        );
 
     sdrplay_api_ErrT err = sdrplay_api_Update(
         pimpl->device->pimpl->device->dev,
         pimpl->device->pimpl->device->tuner,
-        sdrplay_api_Update_Dev_Fs,
+        reason,
         sdrplay_api_Update_Ext1_None
     );
     return (err == sdrplay_api_Success);
 }
 
+// RxChannelParams implementation
 RxChannelParams::RxChannelParams(Device* device, bool isTunerB)
-    : pimpl(new Impl{device, nullptr, isTunerB}) {
+    : pimpl(new Impl(device, nullptr, isTunerB)) {
     if (device->pimpl->deviceParams) {
         pimpl->params = isTunerB ? device->pimpl->deviceParams->rxChannelB
                                 : device->pimpl->deviceParams->rxChannelA;
@@ -207,13 +221,64 @@ void RxChannelParams::setRfFrequency(double frequencyHz) {
     }
 }
 
+void RxChannelParams::setBandwidth(int bandwidthKHz) {
+    if (pimpl->params) {
+        switch (bandwidthKHz) {
+            case 200: pimpl->params->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+            case 300: pimpl->params->tunerParams.bwType = sdrplay_api_BW_0_300; break;
+            case 600: pimpl->params->tunerParams.bwType = sdrplay_api_BW_0_600; break;
+            case 1536: pimpl->params->tunerParams.bwType = sdrplay_api_BW_1_536; break;
+            case 5000: pimpl->params->tunerParams.bwType = sdrplay_api_BW_5_000; break;
+            case 6000: pimpl->params->tunerParams.bwType = sdrplay_api_BW_6_000; break;
+            case 7000: pimpl->params->tunerParams.bwType = sdrplay_api_BW_7_000; break;
+            case 8000: pimpl->params->tunerParams.bwType = sdrplay_api_BW_8_000; break;
+            default: pimpl->params->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+        }
+    }
+}
+
+void RxChannelParams::setIFType(int ifkHz) {
+    if (pimpl->params) {
+        switch (ifkHz) {
+            case 0: pimpl->params->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+            case 450: pimpl->params->tunerParams.ifType = sdrplay_api_IF_0_450; break;
+            case 1620: pimpl->params->tunerParams.ifType = sdrplay_api_IF_1_620; break;
+            case 2048: pimpl->params->tunerParams.ifType = sdrplay_api_IF_2_048; break;
+            default: pimpl->params->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+        }
+    }
+}
+
+void RxChannelParams::setGain(int gainReduction, int lnaState) {
+    if (pimpl->params) {
+        pimpl->params->tunerParams.gain.gRdB = gainReduction;
+        pimpl->params->tunerParams.gain.LNAstate = lnaState;
+    }
+}
+
+void RxChannelParams::setAgcControl(bool enable, int setPoint) {
+    if (pimpl->params) {
+        pimpl->params->ctrlParams.agc.enable = enable ? sdrplay_api_AGC_CTRL_EN : sdrplay_api_AGC_DISABLE;
+        pimpl->params->ctrlParams.agc.setPoint_dBfs = setPoint;
+    }
+}
+
 bool RxChannelParams::update() {
     if (!pimpl->device->pimpl->device) return false;
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Tuner_Frf |
+            sdrplay_api_Update_Tuner_BwType |
+            sdrplay_api_Update_Tuner_IfType |
+            sdrplay_api_Update_Tuner_Gr |
+            sdrplay_api_Update_Ctrl_Agc
+        );
 
     sdrplay_api_ErrT err = sdrplay_api_Update(
         pimpl->device->pimpl->device->dev,
         pimpl->isTunerB ? sdrplay_api_Tuner_B : sdrplay_api_Tuner_A,
-        sdrplay_api_Update_Tuner_Frf,
+        reason,
         sdrplay_api_Update_Ext1_None
     );
     return (err == sdrplay_api_Success);
