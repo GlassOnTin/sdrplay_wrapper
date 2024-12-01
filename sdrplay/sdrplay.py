@@ -118,45 +118,6 @@ class SwigPyIterator(object):
 
 # Register SwigPyIterator in _sdrplay:
 _sdrplay.SwigPyIterator_swigregister(SwigPyIterator)
-class StreamCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_StreamCallbackHandler
-
-    def handleStreamData(self, xi, xq, numSamples):
-        return _sdrplay.StreamCallbackHandler_handleStreamData(self, xi, xq, numSamples)
-
-# Register StreamCallbackHandler in _sdrplay:
-_sdrplay.StreamCallbackHandler_swigregister(StreamCallbackHandler)
-class GainCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_GainCallbackHandler
-
-    def handleGainChange(self, gRdB, lnaGRdB, currGain):
-        return _sdrplay.GainCallbackHandler_handleGainChange(self, gRdB, lnaGRdB, currGain)
-
-# Register GainCallbackHandler in _sdrplay:
-_sdrplay.GainCallbackHandler_swigregister(GainCallbackHandler)
-class PowerOverloadCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_PowerOverloadCallbackHandler
-
-    def handlePowerOverload(self, isOverloaded):
-        return _sdrplay.PowerOverloadCallbackHandler_handlePowerOverload(self, isOverloaded)
-
-# Register PowerOverloadCallbackHandler in _sdrplay:
-_sdrplay.PowerOverloadCallbackHandler_swigregister(PowerOverloadCallbackHandler)
 class DeviceInfoVector(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
@@ -277,6 +238,63 @@ class DeviceInfo(object):
 
 # Register DeviceInfo in _sdrplay:
 _sdrplay.DeviceInfo_swigregister(DeviceInfo)
+class ApiTiming(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+    openDelay = property(_sdrplay.ApiTiming_openDelay_get, _sdrplay.ApiTiming_openDelay_set)
+    selectDelay = property(_sdrplay.ApiTiming_selectDelay_get, _sdrplay.ApiTiming_selectDelay_set)
+    updateDelay = property(_sdrplay.ApiTiming_updateDelay_get, _sdrplay.ApiTiming_updateDelay_set)
+    initDelay = property(_sdrplay.ApiTiming_initDelay_get, _sdrplay.ApiTiming_initDelay_set)
+
+    @staticmethod
+    def getDefaultTiming():
+        return _sdrplay.ApiTiming_getDefaultTiming()
+
+    def __init__(self):
+        _sdrplay.ApiTiming_swiginit(self, _sdrplay.new_ApiTiming())
+    __swig_destroy__ = _sdrplay.delete_ApiTiming
+
+# Register ApiTiming in _sdrplay:
+_sdrplay.ApiTiming_swigregister(ApiTiming)
+class StreamCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_StreamCallbackHandler
+
+    def handleStreamData(self, xi, xq, numSamples):
+        return _sdrplay.StreamCallbackHandler_handleStreamData(self, xi, xq, numSamples)
+
+# Register StreamCallbackHandler in _sdrplay:
+_sdrplay.StreamCallbackHandler_swigregister(StreamCallbackHandler)
+class GainCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_GainCallbackHandler
+
+    def handleGainChange(self, gRdB, lnaGRdB, currGain):
+        return _sdrplay.GainCallbackHandler_handleGainChange(self, gRdB, lnaGRdB, currGain)
+
+# Register GainCallbackHandler in _sdrplay:
+_sdrplay.GainCallbackHandler_swigregister(GainCallbackHandler)
+class PowerOverloadCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_PowerOverloadCallbackHandler
+
+    def handlePowerOverload(self, isOverloaded):
+        return _sdrplay.PowerOverloadCallbackHandler_handlePowerOverload(self, isOverloaded)
+
+# Register PowerOverloadCallbackHandler in _sdrplay:
+_sdrplay.PowerOverloadCallbackHandler_swigregister(PowerOverloadCallbackHandler)
 
 def StreamACallback(xi, xq, params, numSamples, reset, cbContext):
     return _sdrplay.StreamACallback(xi, xq, params, numSamples, reset, cbContext)
@@ -362,17 +380,23 @@ class Device(object):
     def getRxChannelParams(self, isTunerB=False):
         return _sdrplay.Device_getRxChannelParams(self, isTunerB)
 
+    def setTiming(self, timing):
+        return _sdrplay.Device_setTiming(self, timing)
+
+    def getTiming(self):
+        return _sdrplay.Device_getTiming(self)
+
     def startStreaming(self, streamCb, gainCb=0, powerCb=0):
         return _sdrplay.Device_startStreaming(self, streamCb, gainCb, powerCb)
+
+    def startStreamingWithHandlers(self, streamHandler=None, gainHandler=None, powerHandler=None):
+        return _sdrplay.Device_startStreamingWithHandlers(self, streamHandler, gainHandler, powerHandler)
 
     def stopStreaming(self):
         return _sdrplay.Device_stopStreaming(self)
 
     def getLastErrorMessage(self):
         return _sdrplay.Device_getLastErrorMessage(self)
-
-    def startStreamingWithHandlers(self, streamHandler=None, gainHandler=None, powerHandler=None):
-        return _sdrplay.Device_startStreamingWithHandlers(self, streamHandler, gainHandler, powerHandler)
 
 # Register Device in _sdrplay:
 _sdrplay.Device_swigregister(Device)

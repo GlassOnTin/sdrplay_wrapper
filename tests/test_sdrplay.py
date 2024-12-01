@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import unittest
-from unittest.mock import MagicMock, patch
-import numpy as np
 import sys
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG,
+                   format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Add the build directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'build/python'))
@@ -13,6 +17,8 @@ import sdrplay
 class TestSDRplayWrapper(unittest.TestCase):
     def setUp(self):
         self.device = sdrplay.Device()
+        # Open the device in setup
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
 
     def tearDown(self):
         self.device.close()
@@ -20,30 +26,50 @@ class TestSDRplayWrapper(unittest.TestCase):
     def test_api_version(self):
         """Test API version retrieval"""
         version = self.device.getApiVersion()
-        self.assertGreater(version, 0.0)
-        self.assertLess(version, 10.0)  # Reasonable version range
+        logger.debug(f"API Version: {version:.5f}".rstrip('0'))
+        self.assertAlmostEqual(version, 3.15, places=2)
 
     def test_device_enumeration(self):
         """Test device enumeration functionality"""
-        print(self.device)
         devices = self.device.getAvailableDevices()
-        #self.assertIsInstance(devices, list)
-        # Note: Can't assert length as it depends on connected devices
+        logger.debug(f"Available Devices: {len(devices)}")
+
+        # Accept either a DeviceInfoVector or a tuple/list containing DeviceInfo objects
+        self.assertTrue(isinstance(devices, (sdrplay.DeviceInfoVector, tuple, list)),
+                    f"Unexpected devices type: {type(devices)}")
+
+        # Check that we got at least one device
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
+
+        # Verify the first device is a DeviceInfo object
+        first_device = devices[0]
+        self.assertIsInstance(first_device, sdrplay.DeviceInfo,
+                            f"Device is not a DeviceInfo object: {type(first_device)}")
 
     def test_device_info_properties(self):
         """Test device info structure properties"""
         devices = self.device.getAvailableDevices()
-        if len(devices) > 0:
-            info = devices[0]
-            self.assertIsInstance(info.serialNumber, str)
-            self.assertIsInstance(info.hwVersion, int)
-            self.assertIsInstance(info.isTunerA, bool)
-            self.assertIsInstance(info.isTunerB, bool)
-            self.assertIsInstance(info.isRSPDuo, bool)
+        num_devices = len(devices)
+        logger.debug(f"Number of available devices: {num_devices}")
+
+        if num_devices > 0:  # Check if any devices are found
+            for device in devices:
+                logger.debug(f"Device Serial Number: {device.serialNumber}")
+                logger.debug(f"Device Hardware Version: {device.hwVersion}")
+                logger.debug(f"Is Tuner A: {device.isTunerA}")
+                logger.debug(f"Is Tuner B: {device.isTunerB}")
+                logger.debug(f"Is RSP Duo: {device.isRSPDuo}")
+                self.assertIsInstance(device.serialNumber, str)
+                self.assertIsInstance(device.hwVersion, int)
+                self.assertIsInstance(device.isTunerA, bool)
+                self.assertIsInstance(device.isTunerB, bool)
+                self.assertIsInstance(device.isRSPDuo, bool)
+
 
 class TestSDRplayCallbacks(unittest.TestCase):
     def setUp(self):
         self.device = sdrplay.Device()
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
         self.stream_data = None
         self.gain_data = None
         self.overload_data = None
@@ -75,26 +101,30 @@ class TestSDRplayCallbacks(unittest.TestCase):
         def handlePowerOverload(self, isOverloaded):
             self.test_instance.overload_data = isOverloaded
 
-    @unittest.skipIf(len(sdrplay.Device().getAvailableDevices()) == 0,
-                    "No SDRplay devices connected")
-    def test_callbacks(self):
+def test_callbacks(self):
         """Test callback registration and handling"""
+        logger.debug("Starting callback test")
+
         devices = self.device.getAvailableDevices()
-        if not devices:
-            self.skipTest("No SDRplay devices available")
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
+        logger.debug(f"Found {len(devices)} devices")
 
         # Select first available device
+        logger.debug("Selecting first device")
         self.assertTrue(self.device.selectDevice(devices[0]))
 
         # Create device parameters
+        logger.debug("Getting device parameters")
         params = self.device.getDeviceParams()
         self.assertIsNotNone(params)
 
         # Set sample rate
+        logger.debug("Setting sample rate")
         params.setSampleRate(2e6)  # 2 MHz
         self.assertTrue(params.update())
 
         # Set up RX channel
+        logger.debug("Setting up RX channel")
         rx_params = self.device.getRxChannelParams()
         self.assertIsNotNone(rx_params)
         rx_params.setRfFrequency(100e6)  # 100 MHz
@@ -102,40 +132,44 @@ class TestSDRplayCallbacks(unittest.TestCase):
         rx_params.setGain(40, 0)  # 40 dB reduction, LNA state 0
         self.assertTrue(rx_params.update())
 
-        # Start streaming with handlers
+        # Create and register handlers
+        logger.debug("Creating handlers")
         stream_handler = self.StreamHandler(self)
         gain_handler = self.GainHandler(self)
         power_handler = self.PowerHandler(self)
 
+        logger.debug("Starting streaming")
         self.assertTrue(self.device.startStreamingWithHandlers(
             stream_handler, gain_handler, power_handler))
 
         # Wait for some data
+        logger.debug("Waiting for data")
         import time
         time.sleep(1)
 
         # Stop streaming
+        logger.debug("Stopping streaming")
         self.assertTrue(self.device.stopStreaming())
 
-        # Check that we received some data
+        # Check that we received data
+        logger.debug(f"Stream data received: {self.stream_data is not None}")
         if self.stream_data is not None:
             xi, xq, numSamples = self.stream_data
             self.assertGreater(numSamples, 0)
 
+
 class TestSDRplayParameters(unittest.TestCase):
     def setUp(self):
         self.device = sdrplay.Device()
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
 
     def tearDown(self):
         self.device.close()
 
-    @unittest.skipIf(len(sdrplay.Device().getAvailableDevices()) == 0,
-                    "No SDRplay devices connected")
     def test_parameter_settings(self):
         """Test parameter setting and updating"""
         devices = self.device.getAvailableDevices()
-        if not devices:
-            self.skipTest("No SDRplay devices available")
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
 
         # Select first available device
         self.assertTrue(self.device.selectDevice(devices[0]))
@@ -172,6 +206,7 @@ class TestSDRplayParameters(unittest.TestCase):
         # Test AGC setting
         rx_params.setAgcControl(True, -30)
         self.assertTrue(rx_params.update())
+
 
 if __name__ == '__main__':
     unittest.main()
