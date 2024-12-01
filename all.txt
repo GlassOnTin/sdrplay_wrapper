@@ -1,0 +1,3287 @@
+
+//./CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.12)
+project(sdrplay_wrapper VERSION 1.0.0 LANGUAGES CXX)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Set CMake policies for SWIG
+if(POLICY CMP0078)
+    cmake_policy(SET CMP0078 NEW)
+endif()
+if(POLICY CMP0086)
+    cmake_policy(SET CMP0086 NEW)
+endif()
+
+# Find SDRplay API
+find_path(SDRPLAY_API_INCLUDE_DIR
+    NAMES sdrplay_api.h
+    PATHS /usr/local/include
+    REQUIRED
+)
+
+find_library(SDRPLAY_API_LIBRARY
+    NAMES sdrplay_api
+    PATHS /usr/local/lib
+    REQUIRED
+)
+
+# Define source files
+set(WRAPPER_SOURCES
+    src/sdrplay_wrapper.cpp
+    src/device_control.cpp
+    src/basic_params.cpp
+    src/control_params.cpp
+    src/device_params/rsp1a_params.cpp
+)
+
+# Create wrapper library
+add_library(sdrplay_wrapper ${WRAPPER_SOURCES})
+
+target_include_directories(sdrplay_wrapper
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE
+        ${SDRPLAY_API_INCLUDE_DIR}
+)
+
+target_link_libraries(sdrplay_wrapper
+    PRIVATE
+        ${SDRPLAY_API_LIBRARY}
+)
+
+# Handle SWIG Python bindings
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+if(BUILD_PYTHON_BINDINGS)
+    find_package(SWIG REQUIRED)
+    include(${SWIG_USE_FILE})
+
+    find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+
+    # Setup SWIG
+    set(CMAKE_SWIG_FLAGS "")
+    include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${SDRPLAY_API_INCLUDE_DIR}
+        ${Python3_NumPy_INCLUDE_DIRS}
+    )
+
+    set_property(SOURCE swig/sdrplay.i PROPERTY CPLUSPLUS ON)
+    set_property(SOURCE swig/sdrplay.i PROPERTY SWIG_MODULE_NAME sdrplay)
+
+    # Create Python module
+    swig_add_library(sdrplay_python
+        TYPE SHARED
+        LANGUAGE python
+        SOURCES swig/sdrplay.i
+    )
+
+    set_target_properties(sdrplay_python PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "_sdrplay"
+        # Output directly to the package directory for pip install
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/sdrplay
+    )
+
+    target_include_directories(sdrplay_python PRIVATE
+        ${Python3_INCLUDE_DIRS}
+        ${Python3_NumPy_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(sdrplay_python PRIVATE
+        sdrplay_wrapper
+        ${Python3_LIBRARIES}
+    )
+
+    # Clean up old files before build
+    add_custom_target(clean_python
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            ${CMAKE_SOURCE_DIR}/sdrplay
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${CMAKE_SOURCE_DIR}/sdrplay
+    )
+    add_dependencies(sdrplay_python clean_python)
+
+    # Copy generated files to package directory
+    add_custom_command(TARGET sdrplay_python POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_BINARY_DIR}/sdrplay.py
+            ${CMAKE_SOURCE_DIR}/sdrplay/sdrplay.py
+        COMMAND ${CMAKE_COMMAND} -E echo "from .sdrplay import *" >
+            ${CMAKE_SOURCE_DIR}/sdrplay/__init__.py
+    )
+endif()
+
+# Testing configuration
+enable_testing()
+
+# C++ tests
+add_executable(test_sdrplay_api tests/test_sdrplay_api.cpp)
+target_link_libraries(test_sdrplay_api PRIVATE sdrplay_wrapper)
+add_test(NAME test_sdrplay_api COMMAND test_sdrplay_api)
+
+# Python tests
+if(BUILD_PYTHON_BINDINGS)
+    add_test(NAME test_sdrplay_python
+        COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_SOURCE_DIR}/tests/test_sdrplay.py
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    add_test(NAME test_sdrplay_parameters
+        COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_SOURCE_DIR}/tests/test_sdrplay_parameters.py
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+
+    # Set Python path for tests
+    set_tests_properties(
+        test_sdrplay_python
+        test_sdrplay_parameters
+        PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}"
+    )
+endif()
+
+# Installation rules
+include(GNUInstallDirs)
+
+install(TARGETS sdrplay_wrapper
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sdrplay
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# Clean-up
+add_custom_target(clean-all
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_SOURCE_DIR}/sdrplay/__pycache__
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/sdrplay/_sdrplay.so
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/sdrplay/sdrplay.py
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_SOURCE_DIR}/tests/__pycache__
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/tests/test_sdrplay_api
+)
+
+//./include/sdrplay_wrapper.h
+
+// include/sdrplay_wrapper.h
+#ifndef SDRPLAY_WRAPPER_H
+#define SDRPLAY_WRAPPER_H
+
+#include "device_control.h"
+#include "basic_params.h"
+#include "control_params.h"
+#include "device_params/rsp1a_params.h"
+//#include "device_params/rsp2_params.h"
+//#include "device_params/rspduo_params.h"
+//#include "device_params/rspdx_params.h"
+#include "device_params/rspdxr2_params.h"
+
+namespace sdrplay {
+
+// Forward declarations of callback handlers moved here from old header
+class StreamCallbackHandler {
+public:
+    virtual ~StreamCallbackHandler() = default;
+    virtual void handleStreamData(const int16_t* xi, const int16_t* xq, size_t numSamples) = 0;
+};
+
+class GainCallbackHandler {
+public:
+    virtual ~GainCallbackHandler() = default;
+    virtual void handleGainChange(int gRdB, int lnaGRdB, double currGain) = 0;
+};
+
+class PowerOverloadCallbackHandler {
+public:
+    virtual ~PowerOverloadCallbackHandler() = default;
+    virtual void handlePowerOverload(bool isOverloaded) = 0;
+};
+
+// Main Device class becomes a facade for all the components
+class Device {
+public:
+    Device();
+    ~Device();
+
+    // Core operations delegated to DeviceControl
+    bool open();
+    void close();
+    float getApiVersion() const;
+    std::vector<DeviceInfo> getAvailableDevices();
+    bool selectDevice(const DeviceInfo& device);
+    bool releaseDevice();
+
+    // Parameter access - returns component instances
+    BasicParams* getBasicParams();
+    ControlParams* getControlParams();
+    Rsp1aParams* getRsp1aParams();
+
+    // Streaming control
+    bool startStreamingWithHandlers(
+        StreamCallbackHandler* streamHandler = nullptr,
+        GainCallbackHandler* gainHandler = nullptr,
+        PowerOverloadCallbackHandler* powerHandler = nullptr
+    );
+    bool stopStreaming();
+
+    // Error handling
+    std::string getLastErrorMessage() const;
+
+    // C-style callback entry points
+    static void StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
+                              unsigned int numSamples, unsigned int reset, void* cbContext);
+    static void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
+                            sdrplay_api_EventParamsT* params, void* cbContext);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_WRAPPER_H
+
+//./include/device_control.h
+
+// include/device_control.h
+#ifndef SDRPLAY_DEVICE_CONTROL_H
+#define SDRPLAY_DEVICE_CONTROL_H
+
+#include <string>
+#include <memory>
+#include <vector>
+#include "sdrplay_api.h"
+
+namespace sdrplay {
+
+struct DeviceInfo {
+    std::string serialNumber;
+    int hwVersion;
+    bool isTunerA;
+    bool isTunerB;
+    bool isRSPDuo;
+    DeviceInfo() : hwVersion(0), isTunerA(false), isTunerB(false), isRSPDuo(false) {}
+};
+
+class DeviceControl {
+public:
+    DeviceControl();
+    ~DeviceControl();
+
+    bool open();
+    void close();
+    float getApiVersion() const;
+    std::vector<DeviceInfo> getAvailableDevices();
+    bool selectDevice(const DeviceInfo& device);
+    bool releaseDevice();
+    sdrplay_api_DeviceT* getCurrentDevice() const;
+    sdrplay_api_DeviceParamsT* getDeviceParams() const;
+    std::string getLastError() const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_DEVICE_CONTROL_H
+
+//./include/basic_params.h
+
+// include/basic_params.h
+#ifndef SDRPLAY_BASIC_PARAMS_H
+#define SDRPLAY_BASIC_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class BasicParams {
+public:
+    explicit BasicParams(DeviceControl* deviceControl);
+    ~BasicParams();
+
+    void setSampleRate(double sampleRateHz);
+    void setRfFrequency(double frequencyHz);
+    void setBandwidth(int bandwidthKHz);
+    void setIfType(int ifkHz);
+    void setGain(int gainReduction, int lnaState);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_BASIC_PARAMS_H
+
+//./include/control_params.h
+
+// include/control_params.h
+#ifndef SDRPLAY_CONTROL_PARAMS_H
+#define SDRPLAY_CONTROL_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class ControlParams {
+public:
+    explicit ControlParams(DeviceControl* deviceControl);
+    ~ControlParams();
+
+    void setAgcControl(bool enable, int setPoint = -60);
+    void setDcOffset(bool dcEnable, bool iqEnable);
+    void setDecimation(bool enable, unsigned char decimationFactor, bool wideBandSignal);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_CONTROL_PARAMS_H
+
+//./include/device_params/rsp1a_params.h
+
+// include/device_params/rsp1a_params.h
+#ifndef SDRPLAY_RSP1A_PARAMS_H
+#define SDRPLAY_RSP1A_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class Rsp1aParams {
+public:
+    explicit Rsp1aParams(DeviceControl* deviceControl);
+    ~Rsp1aParams();
+
+    void setBiasT(bool enable);
+    void setRfNotch(bool enable);
+    void setDabNotch(bool enable);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_RSP1A_PARAMS_H
+
+//./include/device_params/rspdxr2_params.h
+
+// include/device_params/rsp1a_params.h
+#ifndef SDRPLAY_RSPDXR2_PARAMS_H
+#define SDRPLAY_RSPDXR2_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class RspDxR2Params {
+public:
+    explicit RspDxR2Params(DeviceControl* deviceControl);
+    ~RspDxR2Params();
+
+    // TODO: Add RSPdxR2-specific methods
+
+    bool update();
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_RSPDXR2_PARAMS_H
+
+//./src/sdrplay_wrapper.cpp
+
+// src/sdrplay_wrapper.cpp
+#include "sdrplay_wrapper.h"
+#include <iostream>
+#include <mutex>
+
+namespace sdrplay {
+
+struct Device::Impl {
+    std::unique_ptr<DeviceControl> deviceControl;
+    std::unique_ptr<BasicParams> basicParams;
+    std::unique_ptr<ControlParams> controlParams;
+    std::unique_ptr<Rsp1aParams> rsp1aParams;
+
+    StreamCallbackHandler* pythonStreamHandler;
+    GainCallbackHandler* pythonGainHandler;
+    PowerOverloadCallbackHandler* pythonPowerHandler;
+    std::mutex callbackMutex;
+
+    Impl() : deviceControl(new DeviceControl()),
+             pythonStreamHandler(nullptr),
+             pythonGainHandler(nullptr),
+             pythonPowerHandler(nullptr) {}
+};
+
+// Callback implementations
+void Device::StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
+                         unsigned int numSamples, unsigned int reset, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    if (!device) return;
+
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
+    if (device->pimpl->pythonStreamHandler) {
+        device->pimpl->pythonStreamHandler->handleStreamData(xi, xq, numSamples);
+    }
+}
+
+void Device::EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
+                       sdrplay_api_EventParamsT* params, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    if (!device) return;
+
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
+    switch (eventId) {
+        case sdrplay_api_GainChange:
+            if (device->pimpl->pythonGainHandler) {
+                device->pimpl->pythonGainHandler->handleGainChange(
+                    params->gainParams.gRdB,
+                    params->gainParams.lnaGRdB,
+                    params->gainParams.currGain
+                );
+            }
+            break;
+
+        case sdrplay_api_PowerOverloadChange:
+            if (device->pimpl->pythonPowerHandler) {
+                device->pimpl->pythonPowerHandler->handlePowerOverload(
+                    params->powerOverloadParams.powerOverloadChangeType ==
+                    sdrplay_api_Overload_Detected
+                );
+            }
+            break;
+    }
+}
+
+// Device implementation
+Device::Device() : pimpl(new Impl()) {}
+
+Device::~Device() = default;
+
+bool Device::open() {
+    return pimpl->deviceControl->open();
+}
+
+void Device::close() {
+    pimpl->deviceControl->close();
+}
+
+float Device::getApiVersion() const {
+    return pimpl->deviceControl->getApiVersion();
+}
+
+std::vector<DeviceInfo> Device::getAvailableDevices() {
+    return pimpl->deviceControl->getAvailableDevices();
+}
+
+bool Device::selectDevice(const DeviceInfo& device) {
+    if (!pimpl->deviceControl->selectDevice(device)) {
+        return false;
+    }
+
+    // Initialize parameter components after device selection
+    pimpl->basicParams.reset(new BasicParams(pimpl->deviceControl.get()));
+    pimpl->controlParams.reset(new ControlParams(pimpl->deviceControl.get()));
+    pimpl->rsp1aParams.reset(new Rsp1aParams(pimpl->deviceControl.get()));
+
+    // Initialize API with null callbacks since we're not streaming yet
+    auto* dev = pimpl->deviceControl->getCurrentDevice();
+    if (!dev) return false;
+
+    sdrplay_api_CallbackFnsT callbacks = {};
+    callbacks.StreamACbFn = nullptr;
+    callbacks.StreamBCbFn = nullptr;
+    callbacks.EventCbFn = nullptr;
+
+    sdrplay_api_ErrT err = sdrplay_api_Init(dev->dev, &callbacks, this);
+    if (err != sdrplay_api_Success) {
+        return false;
+    }
+
+    return true;
+}
+
+bool Device::releaseDevice() {
+    // Clear parameter components
+    pimpl->basicParams.reset();
+    pimpl->controlParams.reset();
+    pimpl->rsp1aParams.reset();
+
+    return pimpl->deviceControl->releaseDevice();
+}
+
+BasicParams* Device::getBasicParams() {
+    return pimpl->basicParams.get();
+}
+
+ControlParams* Device::getControlParams() {
+    return pimpl->controlParams.get();
+}
+
+Rsp1aParams* Device::getRsp1aParams() {
+    return pimpl->rsp1aParams.get();
+}
+
+bool Device::startStreamingWithHandlers(
+    StreamCallbackHandler* streamHandler,
+    GainCallbackHandler* gainHandler,
+    PowerOverloadCallbackHandler* powerHandler) {
+
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) return false;
+
+    pimpl->pythonStreamHandler = streamHandler;
+    pimpl->pythonGainHandler = gainHandler;
+    pimpl->pythonPowerHandler = powerHandler;
+
+    sdrplay_api_CallbackFnsT callbacks;
+    callbacks.StreamACbFn = &StreamACallback;
+    callbacks.StreamBCbFn = nullptr;
+    callbacks.EventCbFn = &EventCallback;
+
+    sdrplay_api_ReasonForUpdateT updateReason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Ctrl_DCoffsetIQimbalance |
+            sdrplay_api_Update_Ctrl_Decimation |
+            sdrplay_api_Update_Ctrl_Agc
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        updateReason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        pimpl->pythonStreamHandler = nullptr;
+        pimpl->pythonGainHandler = nullptr;
+        pimpl->pythonPowerHandler = nullptr;
+        return false;
+    }
+
+    return true;
+}
+
+bool Device::stopStreaming() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) return false;
+
+    sdrplay_api_ErrT err = sdrplay_api_Uninit(device->dev);
+
+    pimpl->pythonStreamHandler = nullptr;
+    pimpl->pythonGainHandler = nullptr;
+    pimpl->pythonPowerHandler = nullptr;
+
+    return (err == sdrplay_api_Success);
+}
+
+std::string Device::getLastErrorMessage() const {
+    return pimpl->deviceControl->getLastError();
+}
+
+} // namespace sdrplay
+
+//./src/device_control.cpp
+
+// src/device_control.cpp
+#include "device_control.h"
+#include <stdexcept>
+#include <iostream>
+#include <chrono>
+#include <thread>
+
+namespace sdrplay {
+
+struct DeviceControl::Impl {
+    sdrplay_api_DeviceT deviceStorage;
+    sdrplay_api_DeviceT* device;
+    sdrplay_api_DeviceParamsT* deviceParams;
+    std::string lastError;
+
+    Impl() : device(nullptr), deviceParams(nullptr) {}
+};
+
+DeviceControl::DeviceControl() : pimpl(new Impl()) {}
+
+DeviceControl::~DeviceControl() {
+    close();
+}
+
+bool DeviceControl::open() {
+    sdrplay_api_ErrT err = sdrplay_api_Open();
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return false;
+    }
+
+    // Wait for API to initialize
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // Verify API version
+    float version;
+    err = sdrplay_api_ApiVersion(&version);
+    if (err != sdrplay_api_Success || version != SDRPLAY_API_VERSION) {
+        pimpl->lastError = "API initialization failed or version mismatch";
+        sdrplay_api_Close();
+        return false;
+    }
+
+    return true;
+}
+
+void DeviceControl::close() {
+    if (pimpl->device) {
+        sdrplay_api_ReleaseDevice(pimpl->device);
+        pimpl->device = nullptr;
+        pimpl->deviceParams = nullptr;
+    }
+}
+
+float DeviceControl::getApiVersion() const {
+    float version;
+    sdrplay_api_ErrT err = sdrplay_api_ApiVersion(&version);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return SDRPLAY_API_VERSION;
+    }
+    return version;
+}
+
+std::vector<DeviceInfo> DeviceControl::getAvailableDevices() {
+    std::vector<DeviceInfo> result;
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+
+    if (err == sdrplay_api_Success) {
+        result.reserve(numDevs);
+        for (unsigned int i = 0; i < numDevs; i++) {
+            DeviceInfo info;
+            info.serialNumber = devices[i].SerNo;
+            info.hwVersion = devices[i].hwVer;
+            info.isTunerA = (devices[i].tuner & sdrplay_api_Tuner_A) != 0;
+            info.isTunerB = (devices[i].tuner & sdrplay_api_Tuner_B) != 0;
+            info.isRSPDuo = (devices[i].hwVer == SDRPLAY_RSPduo_ID);
+            result.push_back(info);
+        }
+    } else {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    return result;
+}
+
+bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        sdrplay_api_UnlockDeviceApi();
+        return false;
+    }
+
+    bool found = false;
+    for (unsigned int i = 0; i < numDevs; i++) {
+        if (devices[i].SerNo == deviceInfo.serialNumber) {
+            err = sdrplay_api_SelectDevice(&devices[i]);
+            if (err == sdrplay_api_Success) {
+                pimpl->deviceStorage = devices[i];
+                pimpl->device = &pimpl->deviceStorage;
+
+                err = sdrplay_api_GetDeviceParams(pimpl->device->dev, &pimpl->deviceParams);
+                if (err != sdrplay_api_Success) {
+                    pimpl->lastError = sdrplay_api_GetErrorString(err);
+                    pimpl->device = nullptr;
+                    break;
+                }
+                found = true;
+            } else {
+                pimpl->lastError = sdrplay_api_GetErrorString(err);
+            }
+            break;
+        }
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    return found;
+}
+
+bool DeviceControl::releaseDevice() {
+    if (!pimpl->device) return false;
+
+    sdrplay_api_ErrT err = sdrplay_api_ReleaseDevice(pimpl->device);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return false;
+    }
+    pimpl->device = nullptr;
+    pimpl->deviceParams = nullptr;
+    return true;
+}
+
+sdrplay_api_DeviceT* DeviceControl::getCurrentDevice() const {
+    if (!pimpl->device) {
+        std::cerr << "DeviceControl::getCurrentDevice - No device selected" << std::endl;
+    }
+    return pimpl->device;
+}
+
+sdrplay_api_DeviceParamsT* DeviceControl::getDeviceParams() const {
+    return pimpl->deviceParams;
+}
+
+std::string DeviceControl::getLastError() const {
+    return pimpl->lastError;
+}
+
+} // namespace sdrplay
+
+//./src/basic_params.cpp
+
+// src/basic_params.cpp
+#include "basic_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct BasicParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA; // Default to channel A
+    }
+};
+
+BasicParams::BasicParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+BasicParams::~BasicParams() = default;
+
+void BasicParams::setSampleRate(double sampleRateHz) {
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->fsFreq.fsHz = sampleRateHz;
+    }
+}
+
+void BasicParams::setRfFrequency(double frequencyHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->tunerParams.rfFreq.rfHz = frequencyHz;
+    }
+}
+
+void BasicParams::setBandwidth(int bandwidthKHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        switch (bandwidthKHz) {
+            case 200: channelParams->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+            case 300: channelParams->tunerParams.bwType = sdrplay_api_BW_0_300; break;
+            case 600: channelParams->tunerParams.bwType = sdrplay_api_BW_0_600; break;
+            case 1536: channelParams->tunerParams.bwType = sdrplay_api_BW_1_536; break;
+            case 5000: channelParams->tunerParams.bwType = sdrplay_api_BW_5_000; break;
+            case 6000: channelParams->tunerParams.bwType = sdrplay_api_BW_6_000; break;
+            case 7000: channelParams->tunerParams.bwType = sdrplay_api_BW_7_000; break;
+            case 8000: channelParams->tunerParams.bwType = sdrplay_api_BW_8_000; break;
+            default: channelParams->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+        }
+    }
+}
+
+void BasicParams::setIfType(int ifkHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        switch (ifkHz) {
+            case 0: channelParams->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+            case 450: channelParams->tunerParams.ifType = sdrplay_api_IF_0_450; break;
+            case 1620: channelParams->tunerParams.ifType = sdrplay_api_IF_1_620; break;
+            case 2048: channelParams->tunerParams.ifType = sdrplay_api_IF_2_048; break;
+            default: channelParams->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+        }
+    }
+}
+
+void BasicParams::setGain(int gainReduction, int lnaState) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->tunerParams.gain.gRdB = gainReduction;
+        channelParams->tunerParams.gain.LNAstate = lnaState;
+    }
+}
+
+bool BasicParams::update() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "BasicParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Dev_Fs |
+            sdrplay_api_Update_Tuner_Frf |
+            sdrplay_api_Update_Tuner_BwType |
+            sdrplay_api_Update_Tuner_IfType |
+            sdrplay_api_Update_Tuner_Gr
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "BasicParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./src/control_params.cpp
+
+// src/control_params.cpp
+#include "control_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct ControlParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA; // Default to channel A
+    }
+};
+
+ControlParams::ControlParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+ControlParams::~ControlParams() = default;
+
+void ControlParams::setAgcControl(bool enable, int setPoint) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.agc.enable = enable ? sdrplay_api_AGC_CTRL_EN : sdrplay_api_AGC_DISABLE;
+        channelParams->ctrlParams.agc.setPoint_dBfs = setPoint;
+    }
+}
+
+void ControlParams::setDcOffset(bool dcEnable, bool iqEnable) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.dcOffset.DCenable = dcEnable;
+        channelParams->ctrlParams.dcOffset.IQenable = iqEnable;
+    }
+}
+
+void ControlParams::setDecimation(bool enable, unsigned char decimationFactor, bool wideBandSignal) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.decimation.enable = enable;
+        channelParams->ctrlParams.decimation.decimationFactor = decimationFactor;
+        channelParams->ctrlParams.decimation.wideBandSignal = wideBandSignal;
+    }
+}
+
+bool ControlParams::update() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "ControlParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Ctrl_DCoffsetIQimbalance |
+            sdrplay_api_Update_Ctrl_Decimation |
+            sdrplay_api_Update_Ctrl_Agc
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "ControlParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./src/device_params/rsp1a_params.cpp
+
+// src/device_params/rsp1a_params.cpp
+#include "device_params/rsp1a_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct Rsp1aParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA;
+    }
+
+    bool isRsp1a() const {
+        auto* device = deviceControl->getCurrentDevice();
+        return device && (device->hwVer == SDRPLAY_RSP1A_ID ||
+                         device->hwVer == SDRPLAY_RSP1B_ID);  // RSP1B uses RSP1A parameters
+    }
+};
+
+Rsp1aParams::Rsp1aParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+Rsp1aParams::~Rsp1aParams() = default;
+
+void Rsp1aParams::setBiasT(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->rsp1aTunerParams.biasTEnable = enable;
+    }
+}
+
+void Rsp1aParams::setRfNotch(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->rsp1aParams.rfNotchEnable = enable;
+    }
+}
+
+void Rsp1aParams::setDabNotch(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->rsp1aParams.rfDabNotchEnable = enable;
+    }
+}
+
+bool Rsp1aParams::update() {
+    if (!pimpl->isRsp1a()) {
+        std::cerr << "Rsp1aParams::update - Not an RSP1A device" << std::endl;
+        return false;
+    }
+
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "Rsp1aParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Rsp1a_BiasTControl |
+            sdrplay_api_Update_Rsp1a_RfNotchControl |
+            sdrplay_api_Update_Rsp1a_RfDabNotchControl
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "Rsp1aParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./swig/sdrplay.i
+
+%module sdrplay
+
+// Handle std::vector and std::string first
+%include <std_vector.i>
+%include <std_string.i>
+
+%{
+#include <sdrplay_api.h>
+#include "sdrplay_wrapper.h"
+using namespace sdrplay;
+%}
+
+// Include all the parameter header files
+%include "basic_params.h"
+%include "control_params.h"
+%include "device_params/rsp1a_params.h"
+
+// Handle exceptions
+%include "exception.i"
+%exception {
+    try {
+        $action
+    }
+    catch (const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+}
+
+// Create Python callback interfaces
+%feature("director") sdrplay::StreamCallbackHandler;
+%feature("director:except") {
+    if ($error != NULL) {
+        PyErr_Print();
+    }
+}
+
+// Single definition of the callback handler implementation and extend
+%{
+class StreamCallbackHandlerImpl : public sdrplay::StreamCallbackHandler {
+public:
+    virtual void handleStreamData(const int16_t* xi, const int16_t* xq, size_t numSamples) override {
+        // Default implementation
+    }
+};
+%}
+
+%extend sdrplay::StreamCallbackHandler {
+    StreamCallbackHandler() { return new StreamCallbackHandlerImpl(); }
+}
+
+%feature("director") sdrplay::GainCallbackHandler;
+%feature("director") sdrplay::PowerOverloadCallbackHandler;
+
+// Forward declare the DeviceInfo type
+%typemap(out) std::vector<sdrplay::DeviceInfo> %{
+    $result = SWIG_NewPointerObj(new std::vector<sdrplay::DeviceInfo>($1),
+        $descriptor(std::vector<sdrplay::DeviceInfo>*), SWIG_POINTER_OWN);
+%}
+
+%template(DeviceInfoVector) std::vector<sdrplay::DeviceInfo>;
+
+// Explicitly declare the DeviceInfo struct for SWIG
+namespace sdrplay {
+    struct DeviceInfo {
+        std::string serialNumber;
+        int hwVersion;
+        bool isTunerA;
+        bool isTunerB;
+        bool isRSPDuo;
+    };
+}
+
+// Add cleanup for vectors
+%feature("autodoc", "1");
+%feature("newfree") std::vector<sdrplay::DeviceInfo> "delete $this;";
+
+//./tests/test_sdrplay_api.cpp
+
+#include "sdrplay_api.h"
+#include <iostream>
+#include <thread>
+#include <chrono>
+#include <iomanip>
+#include <cstring>
+
+int main() {
+    // Try getting API version before initialization
+    float apiVersion;
+    sdrplay_api_ErrT err = sdrplay_api_ApiVersion(&apiVersion);
+    std::cout << "Initial API Version call result: " << sdrplay_api_GetErrorString(err) << std::endl;
+
+    // Open the API first
+    err = sdrplay_api_Open();
+    if (err != sdrplay_api_Success) {
+        std::cerr << "sdrplay_api_Open failed: " << sdrplay_api_GetErrorString(err) << std::endl;
+        return 1;
+    }
+
+    std::cout << "API opened successfully, waiting for initialization..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // Try getting version again after initialization
+    err = sdrplay_api_ApiVersion(&apiVersion);
+    std::cout << "API Version call after init result: " << sdrplay_api_GetErrorString(err) << std::endl;
+    if (err == sdrplay_api_Success) {
+        std::cout << "Runtime API Version: " << std::fixed << std::setprecision(2) << apiVersion << std::endl;
+    } else {
+        std::cout << "Using compile-time API Version: " << SDRPLAY_API_VERSION << std::endl;
+    }
+
+    // Now enumerate devices
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    if (err != sdrplay_api_Success) {
+        std::cerr << "GetDevices failed: " << sdrplay_api_GetErrorString(err) << std::endl;
+        sdrplay_api_UnlockDeviceApi();
+        sdrplay_api_Close();
+        return 1;
+    }
+
+    std::cout << "sdrplay_api_GetDevices result: " << sdrplay_api_GetErrorString(err) << std::endl;
+    std::cout << "Number of devices found: " << numDevs << std::endl;
+
+    if (numDevs > 0) {
+        for (unsigned int i = 0; i < numDevs; i++) {
+            std::cout << "Device " << i + 1 << ":" << std::endl;
+            std::cout << "  Serial Number: " << devices[i].SerNo << std::endl;
+            std::cout << "  Hardware Ver: " << (int)devices[i].hwVer << std::endl;
+            std::cout << "  Tuner(s): "
+                      << ((devices[i].tuner & sdrplay_api_Tuner_A) ? "A " : "")
+                      << ((devices[i].tuner & sdrplay_api_Tuner_B) ? "B" : "") << std::endl;
+        }
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    sdrplay_api_Close();
+    return 0;
+}
+
+//./tests/test_sdrplay_parameters.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayBasicParametersTest(SDRplayBaseTest):
+    """Tests for parameters common to all devices"""
+
+    def setUp(self):
+        super().setUp()
+        self.device_info = self._select_first_available_device()
+        self.basic_params = self.device.getBasicParams()
+        self.assertIsNotNone(self.basic_params)
+
+    def test_sample_rate(self):
+        self.basic_params.setSampleRate(2e6)
+        self.assertTrue(self.basic_params.update())
+
+    def test_frequency(self):
+        self.basic_params.setRfFrequency(100e6)
+        self.assertTrue(self.basic_params.update())
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/CMakeLists.txt
+
+# tests/CMakeLists.txt
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+# Copy test files to build directory
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay.py
+    ${CMAKE_BINARY_DIR}/tests/test_sdrplay.py
+    COPYONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay_parameters.py
+    ${CMAKE_BINARY_DIR}/tests/test_sdrplay_parameters.py
+    COPYONLY
+)
+
+# Add test command - using explicit test files like the Makefile
+add_test(
+    NAME python_tests
+    COMMAND ${Python3_EXECUTABLE} -m unittest test_sdrplay.py test_sdrplay_parameters.py -v
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+
+# Set environment variables for test - include both build and source paths
+set_tests_properties(python_tests PROPERTIES
+    ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}:${CMAKE_SOURCE_DIR}"
+)
+
+//./tests/test_sdrplay_streaming.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayStreamingTest(SDRplayBaseTest):
+    """Tests for streaming functionality common to all devices"""
+
+    def setUp(self):
+        super().setUp()  # Handle device creation/opening
+        self.stream_data = None
+        self.gain_data = None
+        self.overload_data = None
+        self.device_info = self._select_first_available_device()  # Use helper method
+
+    class StreamHandler(sdrplay.StreamCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.StreamCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handleStreamData(self, xi, xq, numSamples):
+            self.test_instance.logger.debug(f"Stream data received: {numSamples} samples")
+            self.test_instance.stream_data = (xi, xq, numSamples)
+
+    class GainHandler(sdrplay.GainCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.GainCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handleGainChange(self, gRdB, lnaGRdB, currGain):
+            self.test_instance.logger.debug(
+                f"Gain change: gRdB={gRdB}, lnaGRdB={lnaGRdB}, currGain={currGain}")
+            self.test_instance.gain_data = (gRdB, lnaGRdB, currGain)
+
+    class PowerHandler(sdrplay.PowerOverloadCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.PowerOverloadCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handlePowerOverload(self, isOverloaded):
+            self.test_instance.logger.debug(f"Power overload: {isOverloaded}")
+            self.test_instance.overload_data = isOverloaded
+
+    def test_streaming_callbacks(self):
+        """Test callback registration and basic streaming"""
+        # Get basic parameters
+        self.logger.debug("Getting basic parameters")
+        basic_params = self.device.getBasicParams()
+        self.assertIsNotNone(basic_params)
+
+        # Configure basic parameters
+        self.logger.debug("Setting basic parameters")
+        basic_params.setSampleRate(2e6)  # 2 MHz
+        basic_params.setRfFrequency(100e6)  # 100 MHz
+        basic_params.setBandwidth(600)  # 600 kHz
+        basic_params.setGain(40, 0)  # 40 dB reduction, LNA state 0
+        self.assertTrue(basic_params.update())
+
+        # Start streaming
+        self.logger.debug("Starting streaming with handlers")
+        self.assertTrue(self.device.startStreamingWithHandlers(
+            self.StreamHandler(self),
+            self.GainHandler(self),
+            self.PowerHandler(self)
+        ))
+
+        # Wait for some data
+        self.logger.debug("Waiting for data...")
+        time.sleep(1)
+
+        # Stop streaming
+        self.logger.debug("Stopping streaming")
+        self.assertTrue(self.device.stopStreaming())
+
+        # Verify data received
+        self.assertIsNotNone(self.stream_data, "No stream data received")
+        xi, xq, numSamples = self.stream_data
+        self.logger.debug(f"Received {numSamples} samples")
+        self.assertGreater(numSamples, 0)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/test_sdr_base.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayBaseTest(unittest.TestCase):
+    def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Creating Device instance")
+        self.device = sdrplay.Device()
+        self.logger.debug("Opening device")
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
+        self.logger.debug("Device opened successfully")
+
+    def tearDown(self):
+        self.logger.debug("Closing device")
+        self.device.close()
+        self.logger.debug("Device closed")
+
+    def _select_first_available_device(self):
+        """Helper to select first available device and return its info"""
+        devices = self.device.getAvailableDevices()
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
+        device = devices[0]
+        self.assertTrue(self.device.selectDevice(device))
+        return device
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/test_common.py
+
+#!/usr/bin/env python3
+import unittest
+import sys
+import os
+import logging
+import time
+import sdrplay
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s'
+)
+
+# Base test class
+class SDRplayBaseTest(unittest.TestCase):
+    def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Creating Device instance")
+        self.device = sdrplay.Device()
+        self.logger.debug("Opening device")
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
+        self.logger.debug("Device opened successfully")
+
+    def tearDown(self):
+        self.logger.debug("Closing device")
+        self.device.close()
+        self.logger.debug("Device closed")
+
+    def _select_first_available_device(self):
+        """Helper to select first available device and return its info"""
+        devices = self.device.getAvailableDevices()
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
+        device = devices[0]
+        self.assertTrue(self.device.selectDevice(device))
+        return device
+
+//./tests/test_sdrplay_rsp1a.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+def has_rsp1a_device():
+    """Check if RSP1A device is available"""
+    device = sdrplay.Device()
+    if not device.open():
+        return False
+    try:
+        devices = device.getAvailableDevices()
+        return any(d.hwVersion == sdrplay.SDRPLAY_RSP1A_ID for d in devices)
+    finally:
+        device.close()
+
+@unittest.skipUnless(has_rsp1a_device(), "No RSP1A device available")
+class SDRRSP1ATest(SDRplayBaseTest):
+    """Tests specific to RSP1A devices"""
+
+    def setUp(self):
+        super().setUp()
+        if not has_rsp1a_device():
+            self.skipTest("No RSP1A device available")
+
+        self.device_info = self._select_rsp1a_device()
+        self.rsp1a_params = self.device.getRsp1aParams()
+        self.assertIsNotNone(self.rsp1a_params)
+
+    def _select_rsp1a_device(self):
+        devices = self.device.getAvailableDevices()
+        for device in devices:
+            if device.hwVersion == sdrplay.SDRPLAY_RSP1A_ID:
+                self.assertTrue(self.device.selectDevice(device))
+                return device
+        self.skipTest("No RSP1A device found")
+
+    def test_bias_t(self):
+        self.rsp1a_params.setBiasT(True)
+        self.assertTrue(self.rsp1a_params.update())
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/test_sdrplay_rspdxr2.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+def has_rspdxr2_device():
+    """Check if RSPdxR2 device is available"""
+    device = sdrplay.Device()
+    if not device.open():
+        return False
+    try:
+        devices = device.getAvailableDevices()
+        return any(d.hwVersion == sdrplay.SDRPLAY_RSPdxR2_ID for d in devices)
+    finally:
+        device.close()
+
+
+@unittest.skipUnless(has_rspdxr2_device(), "No RSPdxR2 device available")
+class SDRRSPdxR2Test(SDRplayBaseTest):
+    def setUp(self):
+        super().setUp()
+        self.device_info = self._select_rspdxr2_device()
+        self.rspdxr2_params = self.device.getRspDxR2Params()
+        self.assertIsNotNone(self.rspdxr2_params)
+
+    def _select_rspdxr2_device(self):
+        devices = self.device.getAvailableDevices()
+        for device in devices:
+            if device.hwVersion == sdrplay.SDRPLAY_RSPdxR2_ID:
+                self.assertTrue(self.device.selectDevice(device))
+                return device
+        self.skipTest("No RSPdxR2 device found")
+
+    def test_basic_functionality(self):
+        # Add RSPdxR2-specific tests here
+        pass
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./dump_all.sh
+
+find . -type f -iname "*.py" -o -iname "*.cpp" -o -iname "*h" -o -iname "*txt" -o -iname "*.i" | xargs awk 'FNR==1{print "\r\n//" FILENAME "\r\n"; }{ print }' > all.txt
+
+//./cleanup.sh
+
+#!/bin/bash
+# cleanup.sh
+
+# Clean build
+rm -rf build
+mkdir build
+
+# Clean Python artifacts
+rm -rf ../sdrplay/__pycache__
+rm -f ../sdrplay/_sdrplay.so
+rm -f ../sdrplay/sdrplay.py
+
+# Clean test artifacts
+rm -rf ../tests/__pycache__
+rm -f ../tests/test_sdrplay_api
+
+//./all.txt
+
+
+//./CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.12)
+project(sdrplay_wrapper VERSION 1.0.0 LANGUAGES CXX)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Set CMake policies for SWIG
+if(POLICY CMP0078)
+    cmake_policy(SET CMP0078 NEW)
+endif()
+if(POLICY CMP0086)
+    cmake_policy(SET CMP0086 NEW)
+endif()
+
+# Find SDRplay API
+find_path(SDRPLAY_API_INCLUDE_DIR
+    NAMES sdrplay_api.h
+    PATHS /usr/local/include
+    REQUIRED
+)
+
+find_library(SDRPLAY_API_LIBRARY
+    NAMES sdrplay_api
+    PATHS /usr/local/lib
+    REQUIRED
+)
+
+# Define source files
+set(WRAPPER_SOURCES
+    src/sdrplay_wrapper.cpp
+    src/device_control.cpp
+    src/basic_params.cpp
+    src/control_params.cpp
+    src/device_params/rsp1a_params.cpp
+)
+
+# Create wrapper library
+add_library(sdrplay_wrapper ${WRAPPER_SOURCES})
+
+target_include_directories(sdrplay_wrapper
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE
+        ${SDRPLAY_API_INCLUDE_DIR}
+)
+
+target_link_libraries(sdrplay_wrapper
+    PRIVATE
+        ${SDRPLAY_API_LIBRARY}
+)
+
+# Handle SWIG Python bindings
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+if(BUILD_PYTHON_BINDINGS)
+    find_package(SWIG REQUIRED)
+    include(${SWIG_USE_FILE})
+
+    find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+
+    # Setup SWIG
+    set(CMAKE_SWIG_FLAGS "")
+    include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${SDRPLAY_API_INCLUDE_DIR}
+        ${Python3_NumPy_INCLUDE_DIRS}
+    )
+
+    set_property(SOURCE swig/sdrplay.i PROPERTY CPLUSPLUS ON)
+    set_property(SOURCE swig/sdrplay.i PROPERTY SWIG_MODULE_NAME sdrplay)
+
+    # Create Python module
+    swig_add_library(sdrplay_python
+        TYPE SHARED
+        LANGUAGE python
+        SOURCES swig/sdrplay.i
+    )
+
+    set_target_properties(sdrplay_python PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "_sdrplay"
+        # Output directly to the package directory for pip install
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/sdrplay
+    )
+
+    target_include_directories(sdrplay_python PRIVATE
+        ${Python3_INCLUDE_DIRS}
+        ${Python3_NumPy_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(sdrplay_python PRIVATE
+        sdrplay_wrapper
+        ${Python3_LIBRARIES}
+    )
+
+    # Clean up old files before build
+    add_custom_target(clean_python
+        COMMAND ${CMAKE_COMMAND} -E remove_directory
+            ${CMAKE_SOURCE_DIR}/sdrplay
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${CMAKE_SOURCE_DIR}/sdrplay
+    )
+    add_dependencies(sdrplay_python clean_python)
+
+    # Copy generated files to package directory
+    add_custom_command(TARGET sdrplay_python POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_BINARY_DIR}/sdrplay.py
+            ${CMAKE_SOURCE_DIR}/sdrplay/sdrplay.py
+        COMMAND ${CMAKE_COMMAND} -E echo "from .sdrplay import *" >
+            ${CMAKE_SOURCE_DIR}/sdrplay/__init__.py
+    )
+endif()
+
+# Testing configuration
+enable_testing()
+
+# C++ tests
+add_executable(test_sdrplay_api tests/test_sdrplay_api.cpp)
+target_link_libraries(test_sdrplay_api PRIVATE sdrplay_wrapper)
+add_test(NAME test_sdrplay_api COMMAND test_sdrplay_api)
+
+# Python tests
+if(BUILD_PYTHON_BINDINGS)
+    add_test(NAME test_sdrplay_python
+        COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_SOURCE_DIR}/tests/test_sdrplay.py
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    add_test(NAME test_sdrplay_parameters
+        COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_SOURCE_DIR}/tests/test_sdrplay_parameters.py
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+
+    # Set Python path for tests
+    set_tests_properties(
+        test_sdrplay_python
+        test_sdrplay_parameters
+        PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}"
+    )
+endif()
+
+# Installation rules
+include(GNUInstallDirs)
+
+install(TARGETS sdrplay_wrapper
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sdrplay
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# Clean-up
+add_custom_target(clean-all
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_SOURCE_DIR}/sdrplay/__pycache__
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/sdrplay/_sdrplay.so
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/sdrplay/sdrplay.py
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_SOURCE_DIR}/tests/__pycache__
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_SOURCE_DIR}/tests/test_sdrplay_api
+)
+
+//./include/sdrplay_wrapper.h
+
+// include/sdrplay_wrapper.h
+#ifndef SDRPLAY_WRAPPER_H
+#define SDRPLAY_WRAPPER_H
+
+#include "device_control.h"
+#include "basic_params.h"
+#include "control_params.h"
+#include "device_params/rsp1a_params.h"
+//#include "device_params/rsp2_params.h"
+//#include "device_params/rspduo_params.h"
+//#include "device_params/rspdx_params.h"
+#include "device_params/rspdxr2_params.h"
+
+namespace sdrplay {
+
+// Forward declarations of callback handlers moved here from old header
+class StreamCallbackHandler {
+public:
+    virtual ~StreamCallbackHandler() = default;
+    virtual void handleStreamData(const int16_t* xi, const int16_t* xq, size_t numSamples) = 0;
+};
+
+class GainCallbackHandler {
+public:
+    virtual ~GainCallbackHandler() = default;
+    virtual void handleGainChange(int gRdB, int lnaGRdB, double currGain) = 0;
+};
+
+class PowerOverloadCallbackHandler {
+public:
+    virtual ~PowerOverloadCallbackHandler() = default;
+    virtual void handlePowerOverload(bool isOverloaded) = 0;
+};
+
+// Main Device class becomes a facade for all the components
+class Device {
+public:
+    Device();
+    ~Device();
+
+    // Core operations delegated to DeviceControl
+    bool open();
+    void close();
+    float getApiVersion() const;
+    std::vector<DeviceInfo> getAvailableDevices();
+    bool selectDevice(const DeviceInfo& device);
+    bool releaseDevice();
+
+    // Parameter access - returns component instances
+    BasicParams* getBasicParams();
+    ControlParams* getControlParams();
+    Rsp1aParams* getRsp1aParams();
+
+    // Streaming control
+    bool startStreamingWithHandlers(
+        StreamCallbackHandler* streamHandler = nullptr,
+        GainCallbackHandler* gainHandler = nullptr,
+        PowerOverloadCallbackHandler* powerHandler = nullptr
+    );
+    bool stopStreaming();
+
+    // Error handling
+    std::string getLastErrorMessage() const;
+
+    // C-style callback entry points
+    static void StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
+                              unsigned int numSamples, unsigned int reset, void* cbContext);
+    static void EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
+                            sdrplay_api_EventParamsT* params, void* cbContext);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_WRAPPER_H
+
+//./include/device_control.h
+
+// include/device_control.h
+#ifndef SDRPLAY_DEVICE_CONTROL_H
+#define SDRPLAY_DEVICE_CONTROL_H
+
+#include <string>
+#include <memory>
+#include <vector>
+#include "sdrplay_api.h"
+
+namespace sdrplay {
+
+struct DeviceInfo {
+    std::string serialNumber;
+    int hwVersion;
+    bool isTunerA;
+    bool isTunerB;
+    bool isRSPDuo;
+    DeviceInfo() : hwVersion(0), isTunerA(false), isTunerB(false), isRSPDuo(false) {}
+};
+
+class DeviceControl {
+public:
+    DeviceControl();
+    ~DeviceControl();
+
+    bool open();
+    void close();
+    float getApiVersion() const;
+    std::vector<DeviceInfo> getAvailableDevices();
+    bool selectDevice(const DeviceInfo& device);
+    bool releaseDevice();
+    sdrplay_api_DeviceT* getCurrentDevice() const;
+    sdrplay_api_DeviceParamsT* getDeviceParams() const;
+    std::string getLastError() const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_DEVICE_CONTROL_H
+
+//./include/basic_params.h
+
+// include/basic_params.h
+#ifndef SDRPLAY_BASIC_PARAMS_H
+#define SDRPLAY_BASIC_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class BasicParams {
+public:
+    explicit BasicParams(DeviceControl* deviceControl);
+    ~BasicParams();
+
+    void setSampleRate(double sampleRateHz);
+    void setRfFrequency(double frequencyHz);
+    void setBandwidth(int bandwidthKHz);
+    void setIfType(int ifkHz);
+    void setGain(int gainReduction, int lnaState);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_BASIC_PARAMS_H
+
+//./include/control_params.h
+
+// include/control_params.h
+#ifndef SDRPLAY_CONTROL_PARAMS_H
+#define SDRPLAY_CONTROL_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class ControlParams {
+public:
+    explicit ControlParams(DeviceControl* deviceControl);
+    ~ControlParams();
+
+    void setAgcControl(bool enable, int setPoint = -60);
+    void setDcOffset(bool dcEnable, bool iqEnable);
+    void setDecimation(bool enable, unsigned char decimationFactor, bool wideBandSignal);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_CONTROL_PARAMS_H
+
+//./include/device_params/rsp1a_params.h
+
+// include/device_params/rsp1a_params.h
+#ifndef SDRPLAY_RSP1A_PARAMS_H
+#define SDRPLAY_RSP1A_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class Rsp1aParams {
+public:
+    explicit Rsp1aParams(DeviceControl* deviceControl);
+    ~Rsp1aParams();
+
+    void setBiasT(bool enable);
+    void setRfNotch(bool enable);
+    void setDabNotch(bool enable);
+    bool update();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_RSP1A_PARAMS_H
+
+//./include/device_params/rspdxr2_params.h
+
+// include/device_params/rsp1a_params.h
+#ifndef SDRPLAY_RSPDXR2_PARAMS_H
+#define SDRPLAY_RSPDXR2_PARAMS_H
+
+#include <memory>
+
+namespace sdrplay {
+
+// Forward declare DeviceControl
+class DeviceControl;
+
+class RspDxR2Params {
+public:
+    explicit RspDxR2Params(DeviceControl* deviceControl);
+    ~RspDxR2Params();
+
+    // TODO: Add RSPdxR2-specific methods
+
+    bool update();
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+};
+
+} // namespace sdrplay
+
+#endif // SDRPLAY_RSPDXR2_PARAMS_H
+
+//./src/sdrplay_wrapper.cpp
+
+// src/sdrplay_wrapper.cpp
+#include "sdrplay_wrapper.h"
+#include <iostream>
+#include <mutex>
+
+namespace sdrplay {
+
+struct Device::Impl {
+    std::unique_ptr<DeviceControl> deviceControl;
+    std::unique_ptr<BasicParams> basicParams;
+    std::unique_ptr<ControlParams> controlParams;
+    std::unique_ptr<Rsp1aParams> rsp1aParams;
+
+    StreamCallbackHandler* pythonStreamHandler;
+    GainCallbackHandler* pythonGainHandler;
+    PowerOverloadCallbackHandler* pythonPowerHandler;
+    std::mutex callbackMutex;
+
+    Impl() : deviceControl(new DeviceControl()),
+             pythonStreamHandler(nullptr),
+             pythonGainHandler(nullptr),
+             pythonPowerHandler(nullptr) {}
+};
+
+// Callback implementations
+void Device::StreamACallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params,
+                         unsigned int numSamples, unsigned int reset, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    if (!device) return;
+
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
+    if (device->pimpl->pythonStreamHandler) {
+        device->pimpl->pythonStreamHandler->handleStreamData(xi, xq, numSamples);
+    }
+}
+
+void Device::EventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner,
+                       sdrplay_api_EventParamsT* params, void* cbContext) {
+    auto* device = static_cast<Device*>(cbContext);
+    if (!device) return;
+
+    std::lock_guard<std::mutex> lock(device->pimpl->callbackMutex);
+    switch (eventId) {
+        case sdrplay_api_GainChange:
+            if (device->pimpl->pythonGainHandler) {
+                device->pimpl->pythonGainHandler->handleGainChange(
+                    params->gainParams.gRdB,
+                    params->gainParams.lnaGRdB,
+                    params->gainParams.currGain
+                );
+            }
+            break;
+
+        case sdrplay_api_PowerOverloadChange:
+            if (device->pimpl->pythonPowerHandler) {
+                device->pimpl->pythonPowerHandler->handlePowerOverload(
+                    params->powerOverloadParams.powerOverloadChangeType ==
+                    sdrplay_api_Overload_Detected
+                );
+            }
+            break;
+    }
+}
+
+// Device implementation
+Device::Device() : pimpl(new Impl()) {}
+
+Device::~Device() = default;
+
+bool Device::open() {
+    return pimpl->deviceControl->open();
+}
+
+void Device::close() {
+    pimpl->deviceControl->close();
+}
+
+float Device::getApiVersion() const {
+    return pimpl->deviceControl->getApiVersion();
+}
+
+std::vector<DeviceInfo> Device::getAvailableDevices() {
+    return pimpl->deviceControl->getAvailableDevices();
+}
+
+bool Device::selectDevice(const DeviceInfo& device) {
+    if (!pimpl->deviceControl->selectDevice(device)) {
+        return false;
+    }
+
+    // Initialize parameter components after device selection
+    pimpl->basicParams.reset(new BasicParams(pimpl->deviceControl.get()));
+    pimpl->controlParams.reset(new ControlParams(pimpl->deviceControl.get()));
+    pimpl->rsp1aParams.reset(new Rsp1aParams(pimpl->deviceControl.get()));
+
+    // Initialize API with null callbacks since we're not streaming yet
+    auto* dev = pimpl->deviceControl->getCurrentDevice();
+    if (!dev) return false;
+
+    sdrplay_api_CallbackFnsT callbacks = {};
+    callbacks.StreamACbFn = nullptr;
+    callbacks.StreamBCbFn = nullptr;
+    callbacks.EventCbFn = nullptr;
+
+    sdrplay_api_ErrT err = sdrplay_api_Init(dev->dev, &callbacks, this);
+    if (err != sdrplay_api_Success) {
+        return false;
+    }
+
+    return true;
+}
+
+bool Device::releaseDevice() {
+    // Clear parameter components
+    pimpl->basicParams.reset();
+    pimpl->controlParams.reset();
+    pimpl->rsp1aParams.reset();
+
+    return pimpl->deviceControl->releaseDevice();
+}
+
+BasicParams* Device::getBasicParams() {
+    return pimpl->basicParams.get();
+}
+
+ControlParams* Device::getControlParams() {
+    return pimpl->controlParams.get();
+}
+
+Rsp1aParams* Device::getRsp1aParams() {
+    return pimpl->rsp1aParams.get();
+}
+
+bool Device::startStreamingWithHandlers(
+    StreamCallbackHandler* streamHandler,
+    GainCallbackHandler* gainHandler,
+    PowerOverloadCallbackHandler* powerHandler) {
+
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) return false;
+
+    pimpl->pythonStreamHandler = streamHandler;
+    pimpl->pythonGainHandler = gainHandler;
+    pimpl->pythonPowerHandler = powerHandler;
+
+    sdrplay_api_CallbackFnsT callbacks;
+    callbacks.StreamACbFn = &StreamACallback;
+    callbacks.StreamBCbFn = nullptr;
+    callbacks.EventCbFn = &EventCallback;
+
+    sdrplay_api_ReasonForUpdateT updateReason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Ctrl_DCoffsetIQimbalance |
+            sdrplay_api_Update_Ctrl_Decimation |
+            sdrplay_api_Update_Ctrl_Agc
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        updateReason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        pimpl->pythonStreamHandler = nullptr;
+        pimpl->pythonGainHandler = nullptr;
+        pimpl->pythonPowerHandler = nullptr;
+        return false;
+    }
+
+    return true;
+}
+
+bool Device::stopStreaming() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) return false;
+
+    sdrplay_api_ErrT err = sdrplay_api_Uninit(device->dev);
+
+    pimpl->pythonStreamHandler = nullptr;
+    pimpl->pythonGainHandler = nullptr;
+    pimpl->pythonPowerHandler = nullptr;
+
+    return (err == sdrplay_api_Success);
+}
+
+std::string Device::getLastErrorMessage() const {
+    return pimpl->deviceControl->getLastError();
+}
+
+} // namespace sdrplay
+
+//./src/device_control.cpp
+
+// src/device_control.cpp
+#include "device_control.h"
+#include <stdexcept>
+#include <iostream>
+#include <chrono>
+#include <thread>
+
+namespace sdrplay {
+
+struct DeviceControl::Impl {
+    sdrplay_api_DeviceT deviceStorage;
+    sdrplay_api_DeviceT* device;
+    sdrplay_api_DeviceParamsT* deviceParams;
+    std::string lastError;
+
+    Impl() : device(nullptr), deviceParams(nullptr) {}
+};
+
+DeviceControl::DeviceControl() : pimpl(new Impl()) {}
+
+DeviceControl::~DeviceControl() {
+    close();
+}
+
+bool DeviceControl::open() {
+    sdrplay_api_ErrT err = sdrplay_api_Open();
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return false;
+    }
+
+    // Wait for API to initialize
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // Verify API version
+    float version;
+    err = sdrplay_api_ApiVersion(&version);
+    if (err != sdrplay_api_Success || version != SDRPLAY_API_VERSION) {
+        pimpl->lastError = "API initialization failed or version mismatch";
+        sdrplay_api_Close();
+        return false;
+    }
+
+    return true;
+}
+
+void DeviceControl::close() {
+    if (pimpl->device) {
+        sdrplay_api_ReleaseDevice(pimpl->device);
+        pimpl->device = nullptr;
+        pimpl->deviceParams = nullptr;
+    }
+}
+
+float DeviceControl::getApiVersion() const {
+    float version;
+    sdrplay_api_ErrT err = sdrplay_api_ApiVersion(&version);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return SDRPLAY_API_VERSION;
+    }
+    return version;
+}
+
+std::vector<DeviceInfo> DeviceControl::getAvailableDevices() {
+    std::vector<DeviceInfo> result;
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+
+    if (err == sdrplay_api_Success) {
+        result.reserve(numDevs);
+        for (unsigned int i = 0; i < numDevs; i++) {
+            DeviceInfo info;
+            info.serialNumber = devices[i].SerNo;
+            info.hwVersion = devices[i].hwVer;
+            info.isTunerA = (devices[i].tuner & sdrplay_api_Tuner_A) != 0;
+            info.isTunerB = (devices[i].tuner & sdrplay_api_Tuner_B) != 0;
+            info.isRSPDuo = (devices[i].hwVer == SDRPLAY_RSPduo_ID);
+            result.push_back(info);
+        }
+    } else {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    return result;
+}
+
+bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        sdrplay_api_UnlockDeviceApi();
+        return false;
+    }
+
+    bool found = false;
+    for (unsigned int i = 0; i < numDevs; i++) {
+        if (devices[i].SerNo == deviceInfo.serialNumber) {
+            err = sdrplay_api_SelectDevice(&devices[i]);
+            if (err == sdrplay_api_Success) {
+                pimpl->deviceStorage = devices[i];
+                pimpl->device = &pimpl->deviceStorage;
+
+                err = sdrplay_api_GetDeviceParams(pimpl->device->dev, &pimpl->deviceParams);
+                if (err != sdrplay_api_Success) {
+                    pimpl->lastError = sdrplay_api_GetErrorString(err);
+                    pimpl->device = nullptr;
+                    break;
+                }
+                found = true;
+            } else {
+                pimpl->lastError = sdrplay_api_GetErrorString(err);
+            }
+            break;
+        }
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    return found;
+}
+
+bool DeviceControl::releaseDevice() {
+    if (!pimpl->device) return false;
+
+    sdrplay_api_ErrT err = sdrplay_api_ReleaseDevice(pimpl->device);
+    if (err != sdrplay_api_Success) {
+        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        return false;
+    }
+    pimpl->device = nullptr;
+    pimpl->deviceParams = nullptr;
+    return true;
+}
+
+sdrplay_api_DeviceT* DeviceControl::getCurrentDevice() const {
+    if (!pimpl->device) {
+        std::cerr << "DeviceControl::getCurrentDevice - No device selected" << std::endl;
+    }
+    return pimpl->device;
+}
+
+sdrplay_api_DeviceParamsT* DeviceControl::getDeviceParams() const {
+    return pimpl->deviceParams;
+}
+
+std::string DeviceControl::getLastError() const {
+    return pimpl->lastError;
+}
+
+} // namespace sdrplay
+
+//./src/basic_params.cpp
+
+// src/basic_params.cpp
+#include "basic_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct BasicParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA; // Default to channel A
+    }
+};
+
+BasicParams::BasicParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+BasicParams::~BasicParams() = default;
+
+void BasicParams::setSampleRate(double sampleRateHz) {
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->fsFreq.fsHz = sampleRateHz;
+    }
+}
+
+void BasicParams::setRfFrequency(double frequencyHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->tunerParams.rfFreq.rfHz = frequencyHz;
+    }
+}
+
+void BasicParams::setBandwidth(int bandwidthKHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        switch (bandwidthKHz) {
+            case 200: channelParams->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+            case 300: channelParams->tunerParams.bwType = sdrplay_api_BW_0_300; break;
+            case 600: channelParams->tunerParams.bwType = sdrplay_api_BW_0_600; break;
+            case 1536: channelParams->tunerParams.bwType = sdrplay_api_BW_1_536; break;
+            case 5000: channelParams->tunerParams.bwType = sdrplay_api_BW_5_000; break;
+            case 6000: channelParams->tunerParams.bwType = sdrplay_api_BW_6_000; break;
+            case 7000: channelParams->tunerParams.bwType = sdrplay_api_BW_7_000; break;
+            case 8000: channelParams->tunerParams.bwType = sdrplay_api_BW_8_000; break;
+            default: channelParams->tunerParams.bwType = sdrplay_api_BW_0_200; break;
+        }
+    }
+}
+
+void BasicParams::setIfType(int ifkHz) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        switch (ifkHz) {
+            case 0: channelParams->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+            case 450: channelParams->tunerParams.ifType = sdrplay_api_IF_0_450; break;
+            case 1620: channelParams->tunerParams.ifType = sdrplay_api_IF_1_620; break;
+            case 2048: channelParams->tunerParams.ifType = sdrplay_api_IF_2_048; break;
+            default: channelParams->tunerParams.ifType = sdrplay_api_IF_Zero; break;
+        }
+    }
+}
+
+void BasicParams::setGain(int gainReduction, int lnaState) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->tunerParams.gain.gRdB = gainReduction;
+        channelParams->tunerParams.gain.LNAstate = lnaState;
+    }
+}
+
+bool BasicParams::update() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "BasicParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Dev_Fs |
+            sdrplay_api_Update_Tuner_Frf |
+            sdrplay_api_Update_Tuner_BwType |
+            sdrplay_api_Update_Tuner_IfType |
+            sdrplay_api_Update_Tuner_Gr
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "BasicParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./src/control_params.cpp
+
+// src/control_params.cpp
+#include "control_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct ControlParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA; // Default to channel A
+    }
+};
+
+ControlParams::ControlParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+ControlParams::~ControlParams() = default;
+
+void ControlParams::setAgcControl(bool enable, int setPoint) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.agc.enable = enable ? sdrplay_api_AGC_CTRL_EN : sdrplay_api_AGC_DISABLE;
+        channelParams->ctrlParams.agc.setPoint_dBfs = setPoint;
+    }
+}
+
+void ControlParams::setDcOffset(bool dcEnable, bool iqEnable) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.dcOffset.DCenable = dcEnable;
+        channelParams->ctrlParams.dcOffset.IQenable = iqEnable;
+    }
+}
+
+void ControlParams::setDecimation(bool enable, unsigned char decimationFactor, bool wideBandSignal) {
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->ctrlParams.decimation.enable = enable;
+        channelParams->ctrlParams.decimation.decimationFactor = decimationFactor;
+        channelParams->ctrlParams.decimation.wideBandSignal = wideBandSignal;
+    }
+}
+
+bool ControlParams::update() {
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "ControlParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Ctrl_DCoffsetIQimbalance |
+            sdrplay_api_Update_Ctrl_Decimation |
+            sdrplay_api_Update_Ctrl_Agc
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "ControlParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./src/device_params/rsp1a_params.cpp
+
+// src/device_params/rsp1a_params.cpp
+#include "device_params/rsp1a_params.h"
+#include "device_control.h"
+#include "sdrplay_api.h"
+#include <stdexcept>
+#include <iostream>
+
+namespace sdrplay {
+
+struct Rsp1aParams::Impl {
+    DeviceControl* deviceControl;
+
+    Impl(DeviceControl* control) : deviceControl(control) {
+        if (!control) {
+            throw std::runtime_error("Invalid device control pointer");
+        }
+    }
+
+    sdrplay_api_RxChannelParamsT* getChannelParams() {
+        auto* deviceParams = deviceControl->getDeviceParams();
+        if (!deviceParams) return nullptr;
+        return deviceParams->rxChannelA;
+    }
+
+    bool isRsp1a() const {
+        auto* device = deviceControl->getCurrentDevice();
+        return device && (device->hwVer == SDRPLAY_RSP1A_ID ||
+                         device->hwVer == SDRPLAY_RSP1B_ID);  // RSP1B uses RSP1A parameters
+    }
+};
+
+Rsp1aParams::Rsp1aParams(DeviceControl* deviceControl)
+    : pimpl(new Impl(deviceControl)) {}
+
+Rsp1aParams::~Rsp1aParams() = default;
+
+void Rsp1aParams::setBiasT(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* channelParams = pimpl->getChannelParams();
+    if (channelParams) {
+        channelParams->rsp1aTunerParams.biasTEnable = enable;
+    }
+}
+
+void Rsp1aParams::setRfNotch(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->rsp1aParams.rfNotchEnable = enable;
+    }
+}
+
+void Rsp1aParams::setDabNotch(bool enable) {
+    if (!pimpl->isRsp1a()) return;
+
+    auto* deviceParams = pimpl->deviceControl->getDeviceParams();
+    if (deviceParams && deviceParams->devParams) {
+        deviceParams->devParams->rsp1aParams.rfDabNotchEnable = enable;
+    }
+}
+
+bool Rsp1aParams::update() {
+    if (!pimpl->isRsp1a()) {
+        std::cerr << "Rsp1aParams::update - Not an RSP1A device" << std::endl;
+        return false;
+    }
+
+    auto* device = pimpl->deviceControl->getCurrentDevice();
+    if (!device) {
+        std::cerr << "Rsp1aParams::update - No current device" << std::endl;
+        return false;
+    }
+
+    sdrplay_api_ReasonForUpdateT reason =
+        static_cast<sdrplay_api_ReasonForUpdateT>(
+            sdrplay_api_Update_Rsp1a_BiasTControl |
+            sdrplay_api_Update_Rsp1a_RfNotchControl |
+            sdrplay_api_Update_Rsp1a_RfDabNotchControl
+        );
+
+    sdrplay_api_ErrT err = sdrplay_api_Update(
+        device->dev,
+        device->tuner,
+        reason,
+        sdrplay_api_Update_Ext1_None
+    );
+
+    if (err != sdrplay_api_Success) {
+        std::cerr << "Rsp1aParams::update - Update failed: "
+                  << sdrplay_api_GetErrorString(err) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace sdrplay
+
+//./swig/sdrplay.i
+
+%module sdrplay
+
+// Handle std::vector and std::string first
+%include <std_vector.i>
+%include <std_string.i>
+
+%{
+#include <sdrplay_api.h>
+#include "sdrplay_wrapper.h"
+using namespace sdrplay;
+%}
+
+// Include all the parameter header files
+%include "basic_params.h"
+%include "control_params.h"
+%include "device_params/rsp1a_params.h"
+
+// Handle exceptions
+%include "exception.i"
+%exception {
+    try {
+        $action
+    }
+    catch (const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+}
+
+// Create Python callback interfaces
+%feature("director") sdrplay::StreamCallbackHandler;
+%feature("director:except") {
+    if ($error != NULL) {
+        PyErr_Print();
+    }
+}
+
+// Single definition of the callback handler implementation and extend
+%{
+class StreamCallbackHandlerImpl : public sdrplay::StreamCallbackHandler {
+public:
+    virtual void handleStreamData(const int16_t* xi, const int16_t* xq, size_t numSamples) override {
+        // Default implementation
+    }
+};
+%}
+
+%extend sdrplay::StreamCallbackHandler {
+    StreamCallbackHandler() { return new StreamCallbackHandlerImpl(); }
+}
+
+%feature("director") sdrplay::GainCallbackHandler;
+%feature("director") sdrplay::PowerOverloadCallbackHandler;
+
+// Forward declare the DeviceInfo type
+%typemap(out) std::vector<sdrplay::DeviceInfo> %{
+    $result = SWIG_NewPointerObj(new std::vector<sdrplay::DeviceInfo>($1),
+        $descriptor(std::vector<sdrplay::DeviceInfo>*), SWIG_POINTER_OWN);
+%}
+
+%template(DeviceInfoVector) std::vector<sdrplay::DeviceInfo>;
+
+// Explicitly declare the DeviceInfo struct for SWIG
+namespace sdrplay {
+    struct DeviceInfo {
+        std::string serialNumber;
+        int hwVersion;
+        bool isTunerA;
+        bool isTunerB;
+        bool isRSPDuo;
+    };
+}
+
+// Add cleanup for vectors
+%feature("autodoc", "1");
+%feature("newfree") std::vector<sdrplay::DeviceInfo> "delete $this;";
+
+//./tests/test_sdrplay_api.cpp
+
+#include "sdrplay_api.h"
+#include <iostream>
+#include <thread>
+#include <chrono>
+#include <iomanip>
+#include <cstring>
+
+int main() {
+    // Try getting API version before initialization
+    float apiVersion;
+    sdrplay_api_ErrT err = sdrplay_api_ApiVersion(&apiVersion);
+    std::cout << "Initial API Version call result: " << sdrplay_api_GetErrorString(err) << std::endl;
+
+    // Open the API first
+    err = sdrplay_api_Open();
+    if (err != sdrplay_api_Success) {
+        std::cerr << "sdrplay_api_Open failed: " << sdrplay_api_GetErrorString(err) << std::endl;
+        return 1;
+    }
+
+    std::cout << "API opened successfully, waiting for initialization..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // Try getting version again after initialization
+    err = sdrplay_api_ApiVersion(&apiVersion);
+    std::cout << "API Version call after init result: " << sdrplay_api_GetErrorString(err) << std::endl;
+    if (err == sdrplay_api_Success) {
+        std::cout << "Runtime API Version: " << std::fixed << std::setprecision(2) << apiVersion << std::endl;
+    } else {
+        std::cout << "Using compile-time API Version: " << SDRPLAY_API_VERSION << std::endl;
+    }
+
+    // Now enumerate devices
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs;
+
+    sdrplay_api_LockDeviceApi();
+    err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    if (err != sdrplay_api_Success) {
+        std::cerr << "GetDevices failed: " << sdrplay_api_GetErrorString(err) << std::endl;
+        sdrplay_api_UnlockDeviceApi();
+        sdrplay_api_Close();
+        return 1;
+    }
+
+    std::cout << "sdrplay_api_GetDevices result: " << sdrplay_api_GetErrorString(err) << std::endl;
+    std::cout << "Number of devices found: " << numDevs << std::endl;
+
+    if (numDevs > 0) {
+        for (unsigned int i = 0; i < numDevs; i++) {
+            std::cout << "Device " << i + 1 << ":" << std::endl;
+            std::cout << "  Serial Number: " << devices[i].SerNo << std::endl;
+            std::cout << "  Hardware Ver: " << (int)devices[i].hwVer << std::endl;
+            std::cout << "  Tuner(s): "
+                      << ((devices[i].tuner & sdrplay_api_Tuner_A) ? "A " : "")
+                      << ((devices[i].tuner & sdrplay_api_Tuner_B) ? "B" : "") << std::endl;
+        }
+    }
+
+    sdrplay_api_UnlockDeviceApi();
+    sdrplay_api_Close();
+    return 0;
+}
+
+//./tests/test_sdrplay_parameters.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayBasicParametersTest(SDRplayBaseTest):
+    """Tests for parameters common to all devices"""
+
+    def setUp(self):
+        super().setUp()
+        self.device_info = self._select_first_available_device()
+        self.basic_params = self.device.getBasicParams()
+        self.assertIsNotNone(self.basic_params)
+
+    def test_sample_rate(self):
+        self.basic_params.setSampleRate(2e6)
+        self.assertTrue(self.basic_params.update())
+
+    def test_frequency(self):
+        self.basic_params.setRfFrequency(100e6)
+        self.assertTrue(self.basic_params.update())
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/CMakeLists.txt
+
+# tests/CMakeLists.txt
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+# Copy test files to build directory
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay.py
+    ${CMAKE_BINARY_DIR}/tests/test_sdrplay.py
+    COPYONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay_parameters.py
+    ${CMAKE_BINARY_DIR}/tests/test_sdrplay_parameters.py
+    COPYONLY
+)
+
+# Add test command - using explicit test files like the Makefile
+add_test(
+    NAME python_tests
+    COMMAND ${Python3_EXECUTABLE} -m unittest test_sdrplay.py test_sdrplay_parameters.py -v
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+
+# Set environment variables for test - include both build and source paths
+set_tests_properties(python_tests PROPERTIES
+    ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}:${CMAKE_SOURCE_DIR}"
+)
+
+//./tests/test_sdrplay_streaming.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayStreamingTest(SDRplayBaseTest):
+    """Tests for streaming functionality common to all devices"""
+
+    def setUp(self):
+        super().setUp()  # Handle device creation/opening
+        self.stream_data = None
+        self.gain_data = None
+        self.overload_data = None
+        self.device_info = self._select_first_available_device()  # Use helper method
+
+    class StreamHandler(sdrplay.StreamCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.StreamCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handleStreamData(self, xi, xq, numSamples):
+            self.test_instance.logger.debug(f"Stream data received: {numSamples} samples")
+            self.test_instance.stream_data = (xi, xq, numSamples)
+
+    class GainHandler(sdrplay.GainCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.GainCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handleGainChange(self, gRdB, lnaGRdB, currGain):
+            self.test_instance.logger.debug(
+                f"Gain change: gRdB={gRdB}, lnaGRdB={lnaGRdB}, currGain={currGain}")
+            self.test_instance.gain_data = (gRdB, lnaGRdB, currGain)
+
+    class PowerHandler(sdrplay.PowerOverloadCallbackHandler):
+        def __init__(self, test_instance):
+            sdrplay.PowerOverloadCallbackHandler.__init__(self)
+            self.test_instance = test_instance
+
+        def handlePowerOverload(self, isOverloaded):
+            self.test_instance.logger.debug(f"Power overload: {isOverloaded}")
+            self.test_instance.overload_data = isOverloaded
+
+    def test_streaming_callbacks(self):
+        """Test callback registration and basic streaming"""
+        # Get basic parameters
+        self.logger.debug("Getting basic parameters")
+        basic_params = self.device.getBasicParams()
+        self.assertIsNotNone(basic_params)
+
+        # Configure basic parameters
+        self.logger.debug("Setting basic parameters")
+        basic_params.setSampleRate(2e6)  # 2 MHz
+        basic_params.setRfFrequency(100e6)  # 100 MHz
+        basic_params.setBandwidth(600)  # 600 kHz
+        basic_params.setGain(40, 0)  # 40 dB reduction, LNA state 0
+        self.assertTrue(basic_params.update())
+
+        # Start streaming
+        self.logger.debug("Starting streaming with handlers")
+        self.assertTrue(self.device.startStreamingWithHandlers(
+            self.StreamHandler(self),
+            self.GainHandler(self),
+            self.PowerHandler(self)
+        ))
+
+        # Wait for some data
+        self.logger.debug("Waiting for data...")
+        time.sleep(1)
+
+        # Stop streaming
+        self.logger.debug("Stopping streaming")
+        self.assertTrue(self.device.stopStreaming())
+
+        # Verify data received
+        self.assertIsNotNone(self.stream_data, "No stream data received")
+        xi, xq, numSamples = self.stream_data
+        self.logger.debug(f"Received {numSamples} samples")
+        self.assertGreater(numSamples, 0)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/test_sdr_base.py
+
+#!/usr/bin/env python3
+from test_common import *
+
+class SDRplayBaseTest(unittest.TestCase):
+    def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Creating Device instance")
+        self.device = sdrplay.Device()
+        self.logger.debug("Opening device")
+        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
+        self.logger.debug("Device opened successfully")
+
+    def tearDown(self):
+        self.logger.debug("Closing device")
+        self.device.close()
+        self.logger.debug("Device closed")
+
+    def _select_first_available_device(self):
+        """Helper to select first available device and return its info"""
+        devices = self.device.getAvailableDevices()
+        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
+        device = devices[0]
+        self.assertTrue(self.device.selectDevice(device))
+        return device
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
+//./tests/test_common.py
+
+#!/usr/bin/env python3
+import unittest
+import sys
+import os
+import logging
+import time
+import sdrplay
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s'
+)
+
+# Base test class
+class SDRplayBaseTest(unittest.TestCase
+
+//./sdrplay/sdrplay.py
+
+# This file was automatically generated by SWIG (https://www.swig.org).
+# Version 4.2.1
+#
+# Do not make changes to this file unless you know what you are doing - modify
+# the SWIG interface file instead.
+
+from sys import version_info as _swig_python_version_info
+# Import the low-level C/C++ module
+if __package__ or "." in __name__:
+    from . import _sdrplay
+else:
+    import _sdrplay
+
+try:
+    import builtins as __builtin__
+except ImportError:
+    import __builtin__
+
+def _swig_repr(self):
+    try:
+        strthis = "proxy of " + self.this.__repr__()
+    except __builtin__.Exception:
+        strthis = ""
+    return "<%s.%s; %s >" % (self.__class__.__module__, self.__class__.__name__, strthis,)
+
+
+def _swig_setattr_nondynamic_instance_variable(set):
+    def set_instance_attr(self, name, value):
+        if name == "this":
+            set(self, name, value)
+        elif name == "thisown":
+            self.this.own(value)
+        elif hasattr(self, name) and isinstance(getattr(type(self), name), property):
+            set(self, name, value)
+        else:
+            raise AttributeError("You cannot add instance attributes to %s" % self)
+    return set_instance_attr
+
+
+def _swig_setattr_nondynamic_class_variable(set):
+    def set_class_attr(cls, name, value):
+        if hasattr(cls, name) and not isinstance(getattr(cls, name), property):
+            set(cls, name, value)
+        else:
+            raise AttributeError("You cannot add class attributes to %s" % cls)
+    return set_class_attr
+
+
+def _swig_add_metaclass(metaclass):
+    """Class decorator for adding a metaclass to a SWIG wrapped class - a slimmed down version of six.add_metaclass"""
+    def wrapper(cls):
+        return metaclass(cls.__name__, cls.__bases__, cls.__dict__.copy())
+    return wrapper
+
+
+class _SwigNonDynamicMeta(type):
+    """Meta class to enforce nondynamic attributes (no new attributes) for a class"""
+    __setattr__ = _swig_setattr_nondynamic_class_variable(type.__setattr__)
+
+
+class SwigPyIterator(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_SwigPyIterator
+
+    def value(self):
+        return _sdrplay.SwigPyIterator_value(self)
+
+    def incr(self, n=1):
+        return _sdrplay.SwigPyIterator_incr(self, n)
+
+    def decr(self, n=1):
+        return _sdrplay.SwigPyIterator_decr(self, n)
+
+    def distance(self, x):
+        return _sdrplay.SwigPyIterator_distance(self, x)
+
+    def equal(self, x):
+        return _sdrplay.SwigPyIterator_equal(self, x)
+
+    def copy(self):
+        return _sdrplay.SwigPyIterator_copy(self)
+
+    def next(self):
+        return _sdrplay.SwigPyIterator_next(self)
+
+    def __next__(self):
+        return _sdrplay.SwigPyIterator___next__(self)
+
+    def previous(self):
+        return _sdrplay.SwigPyIterator_previous(self)
+
+    def advance(self, n):
+        return _sdrplay.SwigPyIterator_advance(self, n)
+
+    def __eq__(self, x):
+        return _sdrplay.SwigPyIterator___eq__(self, x)
+
+    def __ne__(self, x):
+        return _sdrplay.SwigPyIterator___ne__(self, x)
+
+    def __iadd__(self, n):
+        return _sdrplay.SwigPyIterator___iadd__(self, n)
+
+    def __isub__(self, n):
+        return _sdrplay.SwigPyIterator___isub__(self, n)
+
+    def __add__(self, n):
+        return _sdrplay.SwigPyIterator___add__(self, n)
+
+    def __sub__(self, *args):
+        return _sdrplay.SwigPyIterator___sub__(self, *args)
+    def __iter__(self):
+        return self
+
+# Register SwigPyIterator in _sdrplay:
+_sdrplay.SwigPyIterator_swigregister(SwigPyIterator)
+class BasicParams(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, deviceControl):
+        _sdrplay.BasicParams_swiginit(self, _sdrplay.new_BasicParams(deviceControl))
+    __swig_destroy__ = _sdrplay.delete_BasicParams
+
+    def setSampleRate(self, sampleRateHz):
+        return _sdrplay.BasicParams_setSampleRate(self, sampleRateHz)
+
+    def setRfFrequency(self, frequencyHz):
+        return _sdrplay.BasicParams_setRfFrequency(self, frequencyHz)
+
+    def setBandwidth(self, bandwidthKHz):
+        return _sdrplay.BasicParams_setBandwidth(self, bandwidthKHz)
+
+    def setIfType(self, ifkHz):
+        return _sdrplay.BasicParams_setIfType(self, ifkHz)
+
+    def setGain(self, gainReduction, lnaState):
+        return _sdrplay.BasicParams_setGain(self, gainReduction, lnaState)
+
+    def update(self):
+        return _sdrplay.BasicParams_update(self)
+
+# Register BasicParams in _sdrplay:
+_sdrplay.BasicParams_swigregister(BasicParams)
+class ControlParams(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, deviceControl):
+        _sdrplay.ControlParams_swiginit(self, _sdrplay.new_ControlParams(deviceControl))
+    __swig_destroy__ = _sdrplay.delete_ControlParams
+
+    def setAgcControl(self, enable, setPoint=-60):
+        return _sdrplay.ControlParams_setAgcControl(self, enable, setPoint)
+
+    def setDcOffset(self, dcEnable, iqEnable):
+        return _sdrplay.ControlParams_setDcOffset(self, dcEnable, iqEnable)
+
+    def setDecimation(self, enable, decimationFactor, wideBandSignal):
+        return _sdrplay.ControlParams_setDecimation(self, enable, decimationFactor, wideBandSignal)
+
+    def update(self):
+        return _sdrplay.ControlParams_update(self)
+
+# Register ControlParams in _sdrplay:
+_sdrplay.ControlParams_swigregister(ControlParams)
+class Rsp1aParams(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, deviceControl):
+        _sdrplay.Rsp1aParams_swiginit(self, _sdrplay.new_Rsp1aParams(deviceControl))
+    __swig_destroy__ = _sdrplay.delete_Rsp1aParams
+
+    def setBiasT(self, enable):
+        return _sdrplay.Rsp1aParams_setBiasT(self, enable)
+
+    def setRfNotch(self, enable):
+        return _sdrplay.Rsp1aParams_setRfNotch(self, enable)
+
+    def setDabNotch(self, enable):
+        return _sdrplay.Rsp1aParams_setDabNotch(self, enable)
+
+    def update(self):
+        return _sdrplay.Rsp1aParams_update(self)
+
+# Register Rsp1aParams in _sdrplay:
+_sdrplay.Rsp1aParams_swigregister(Rsp1aParams)
+class DeviceInfoVector(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def iterator(self):
+        return _sdrplay.DeviceInfoVector_iterator(self)
+    def __iter__(self):
+        return self.iterator()
+
+    def __nonzero__(self):
+        return _sdrplay.DeviceInfoVector___nonzero__(self)
+
+    def __bool__(self):
+        return _sdrplay.DeviceInfoVector___bool__(self)
+
+    def __len__(self):
+        return _sdrplay.DeviceInfoVector___len__(self)
+
+    def __getslice__(self, i, j):
+        return _sdrplay.DeviceInfoVector___getslice__(self, i, j)
+
+    def __setslice__(self, *args):
+        return _sdrplay.DeviceInfoVector___setslice__(self, *args)
+
+    def __delslice__(self, i, j):
+        return _sdrplay.DeviceInfoVector___delslice__(self, i, j)
+
+    def __delitem__(self, *args):
+        return _sdrplay.DeviceInfoVector___delitem__(self, *args)
+
+    def __getitem__(self, *args):
+        return _sdrplay.DeviceInfoVector___getitem__(self, *args)
+
+    def __setitem__(self, *args):
+        return _sdrplay.DeviceInfoVector___setitem__(self, *args)
+
+    def pop(self):
+        return _sdrplay.DeviceInfoVector_pop(self)
+
+    def append(self, x):
+        return _sdrplay.DeviceInfoVector_append(self, x)
+
+    def empty(self):
+        return _sdrplay.DeviceInfoVector_empty(self)
+
+    def size(self):
+        return _sdrplay.DeviceInfoVector_size(self)
+
+    def swap(self, v):
+        return _sdrplay.DeviceInfoVector_swap(self, v)
+
+    def begin(self):
+        return _sdrplay.DeviceInfoVector_begin(self)
+
+    def end(self):
+        return _sdrplay.DeviceInfoVector_end(self)
+
+    def rbegin(self):
+        return _sdrplay.DeviceInfoVector_rbegin(self)
+
+    def rend(self):
+        return _sdrplay.DeviceInfoVector_rend(self)
+
+    def clear(self):
+        return _sdrplay.DeviceInfoVector_clear(self)
+
+    def get_allocator(self):
+        return _sdrplay.DeviceInfoVector_get_allocator(self)
+
+    def pop_back(self):
+        return _sdrplay.DeviceInfoVector_pop_back(self)
+
+    def erase(self, *args):
+        return _sdrplay.DeviceInfoVector_erase(self, *args)
+
+    def __init__(self, *args):
+        _sdrplay.DeviceInfoVector_swiginit(self, _sdrplay.new_DeviceInfoVector(*args))
+
+    def push_back(self, x):
+        return _sdrplay.DeviceInfoVector_push_back(self, x)
+
+    def front(self):
+        return _sdrplay.DeviceInfoVector_front(self)
+
+    def back(self):
+        return _sdrplay.DeviceInfoVector_back(self)
+
+    def assign(self, n, x):
+        return _sdrplay.DeviceInfoVector_assign(self, n, x)
+
+    def resize(self, *args):
+        return _sdrplay.DeviceInfoVector_resize(self, *args)
+
+    def insert(self, *args):
+        return _sdrplay.DeviceInfoVector_insert(self, *args)
+
+    def reserve(self, n):
+        return _sdrplay.DeviceInfoVector_reserve(self, n)
+
+    def capacity(self):
+        return _sdrplay.DeviceInfoVector_capacity(self)
+    __swig_destroy__ = _sdrplay.delete_DeviceInfoVector
+
+# Register DeviceInfoVector in _sdrplay:
+_sdrplay.DeviceInfoVector_swigregister(DeviceInfoVector)
+class DeviceInfo(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+    serialNumber = property(_sdrplay.DeviceInfo_serialNumber_get, _sdrplay.DeviceInfo_serialNumber_set)
+    hwVersion = property(_sdrplay.DeviceInfo_hwVersion_get, _sdrplay.DeviceInfo_hwVersion_set)
+    isTunerA = property(_sdrplay.DeviceInfo_isTunerA_get, _sdrplay.DeviceInfo_isTunerA_set)
+    isTunerB = property(_sdrplay.DeviceInfo_isTunerB_get, _sdrplay.DeviceInfo_isTunerB_set)
+    isRSPDuo = property(_sdrplay.DeviceInfo_isRSPDuo_get, _sdrplay.DeviceInfo_isRSPDuo_set)
+
+    def __init__(self):
+        r"""__init__(DeviceInfo self) -> DeviceInfo"""
+        _sdrplay.DeviceInfo_swiginit(self, _sdrplay.new_DeviceInfo())
+    __swig_destroy__ = _sdrplay.delete_DeviceInfo
+
+# Register DeviceInfo in _sdrplay:
+_sdrplay.DeviceInfo_swigregister(DeviceInfo)
+
+
+//./sdrplay/__init__.py
+
+from .sdrplay import *
