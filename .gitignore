@@ -206,3 +206,5 @@ CMakeUserPresets.json
 *.exe
 *.out
 *.app
+
+all.txt
