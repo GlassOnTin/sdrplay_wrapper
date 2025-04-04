@@ -1,115 +1,92 @@
-# SDRPlay Streaming API Implementation Status
+# SDRPlay Streaming API Status
 
-## Overview
+This document describes the current status of the streaming API implementation in the SDRPlay wrapper.
 
-This document summarizes the current state of the streaming API implementation for the SDRPlay wrapper.
+## Implementation Status
 
-## Implemented Features
+### C++ Implementation
 
-1. **C++ Streaming API**
-   - Added abstract streaming control methods to DeviceControl class
-   - Implemented callback registration for:
-     - Stream data (IQ samples)
-     - Gain changes
-     - Power overload events
-   - Implemented streaming control:
-     - initializeStreaming()
-     - startStreaming()
-     - stopStreaming()
-     - isStreaming()
-   - Device-specific implementations for:
-     - RSP1A
-     - RSPdxR2
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Device Control Interface | ✅ Complete | Abstract base class with all streaming methods |
+| RSP1A Implementation | ✅ Complete | Full implementation of streaming methods |
+| RSPdxR2 Implementation | ✅ Complete | Full implementation of streaming methods |
+| Callback Routing | ✅ Complete | Maps SDRPlay API callbacks to user callbacks |
+| Device Registry | ✅ Complete | Support for device creation and management |
 
-2. **Integration with SDRPlay API**
-   - Set up callback mechanisms to route events from SDRPlay API
-   - Connected streaming controls to sdrplay_api_Init and sdrplay_api_Uninit
-   - Added default streaming parameters
+### Python Binding Status
 
-3. **Documentation and Examples**
-   - Added streaming API documentation to README.md
-   - Created example_streaming.py showing how to use the streaming API
-   - Added test scripts for streaming functionality
+| Component | Status | Notes |
+|-----------|--------|-------|
+| SWIG Interface | ⚠️ Partial | Director pattern set up but needs refinement |
+| Python Wrapper | ✅ Complete | All API methods exposed to Python |
+| Python Callbacks | ⚠️ Partial | Registration works, but data transfer has issues |
+| Example Script | ✅ Complete | Demonstrates intended API usage |
+| Unit Tests | ⚠️ Partial | Test framework in place but assertions disabled |
 
 ## Known Issues
 
 1. **SWIG Callback Integration**
-   - The Python wrapper is not properly handling callback registration
-   - The director pattern is configured but not working correctly
-   - Python test script test_streaming.py demonstrates the issue
+   - The Python wrapper is not properly handling callback registration in all cases
+   - The director pattern is configured but not working correctly for buffer passing
+   - Python test script `test_sdrplay_streaming.py` demonstrates the issue
+
+2. **Buffer Management**
+   - Need better buffer management for large sample transfers
+   - Current implementation may cause memory issues with large sample rates
+
+3. **Error Handling**
+   - Need more comprehensive error checking in streaming methods
+   - Error propagation from C++ to Python needs improvement
 
 ## Next Steps
 
-1. **Fix SWIG Callback Wrapping**
-   - Review sdrplay.i in swig directory for proper callback setup
-   - Implement better type mapping for callback handlers
-   - Investigate using %feature("director") more effectively
+1. **Fix SWIG Director Pattern Implementation**
+   - Ensure Python callbacks can properly receive data from C++
+   - Add proper type mappings for array parameters
+   - Fix memory management for callback data
 
-2. **Complete Streaming Implementation**
-   - Fully integrate with SDRPlay API with real data flow 
-   - Implement buffer management for sample data
-   - Implement streaming configuration options (decimation, etc.)
+2. **Improve Test Coverage**
+   - Enable assertions in streaming tests
+   - Add more comprehensive tests for edge cases
+   - Create mock device for testing without hardware
 
-3. **Testing**
-   - Create comprehensive tests for streaming functionality
-   - Fix test_sdrplay_streaming.py to handle callback registration
-   - Add unit tests for callback handling
+3. **Enhance Documentation**
+   - Add detailed API documentation for all streaming methods
+   - Create more examples showing signal processing use cases
+   - Document tuning parameters and their effects
 
-## Usage (When Callbacks are Fixed)
+4. **Performance Optimization**
+   - Improve buffer handling to reduce copying
+   - Add support for zero-copy buffer access where possible
+   - Optimize callback dispatch mechanism
+
+## Example Code
+
+See `example_streaming.py` for a complete example of using the streaming API.
+
+Key components of the streaming API:
 
 ```python
-from sdrplay import sdrplay
-import numpy as np
+# Create callback handlers
+stream_cb = StreamCallback()
+gain_cb = GainCallback()
+power_cb = PowerOverloadCallback()
 
-# Define your callback handlers
-class StreamHandler(sdrplay.StreamCallbackHandler):
-    def __init__(self):
-        # For abstract classes in SWIG, don't call the parent constructor
-        self.buffer = []
-        self.total_samples = 0
-    
-    def handleStreamData(self, xi, xq, numSamples):
-        # Convert to numpy arrays
-        i_data = np.array(xi[:numSamples])
-        q_data = np.array(xq[:numSamples])
-        
-        # Process IQ samples as needed
-        print(f"Received {numSamples} samples")
-        
-# Create and configure device
-device = sdrplay.Device()
-devices = device.getAvailableDevices()
-if len(devices) > 0:
-    device.selectDevice(devices[0])
-    
-    # Set frequency and sample rate
-    device.setFrequency(100e6)
-    device.setSampleRate(2e6)
-    
-    # Register callbacks
-    stream_cb = StreamHandler()
-    device.registerStreamCallback(stream_cb)
-    
-    # Start streaming
-    device.startStreaming()
-    
-    # ... do processing ...
+# Register callbacks
+device.registerStreamCallback(stream_cb)
+device.registerGainCallback(gain_cb)
+device.registerPowerOverloadCallback(power_cb)
+
+# Start streaming
+if device.startStreaming():
+    # Process data...
     
     # Stop streaming when done
     device.stopStreaming()
-    
-    # Clean up
-    device.releaseDevice()
 ```
 
-## Implementation Details
+## References
 
-The streaming implementation uses a bridge pattern to connect:
-1. The C++ wrapper API (Device class)
-2. Device-specific control implementations (RSP1A, RSPdxR2)
-3. SDRPlay API callback mechanism
-
-This design allows for:
-- Hardware-specific optimizations
-- Clean separation of concerns
-- Easy extension for future SDRPlay devices
+- SDRPlay API Documentation: https://www.sdrplay.com/docs/
+- SWIG Director Pattern: https://www.swig.org/Doc4.0/SWIGDocumentation.html#Python_directors
