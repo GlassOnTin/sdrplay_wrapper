@@ -1,36 +1,61 @@
 #!/usr/bin/env python3
 import unittest
-import sys
-import os
 import logging
-import time
 import sdrplay
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s'
-)
-
-# Base test class
-class SDRplayBaseTest(unittest.TestCase):
+class TestDeviceRegistry(unittest.TestCase):
     def setUp(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.debug("Creating Device instance")
+        logging.basicConfig(level=logging.DEBUG)
+
+    def test_device_creation(self):
+        # Test RSP1A creation
+        device = sdrplay.Device()
+        self.assertIsNotNone(device)
+
+        # Test getting device list
+        devices = device.getAvailableDevices()
+        self.logger.info(f"Found {len(devices)} devices")
+        
+        # Skip actual device tests if no devices found
+        if len(devices) == 0:
+            self.logger.warning("No SDRPlay devices found, skipping device tests")
+            return
+            
+        # Test device parameters
+        device_info = devices[0]
+        self.assertTrue(device.selectDevice(device_info))
+        
+        # Test frequency setting
+        device.setFrequency(100e6)
+        self.assertAlmostEqual(device.getFrequency(), 100e6, delta=1000)
+        
+        # Test sample rate setting
+        device.setSampleRate(2e6)
+        self.assertAlmostEqual(device.getSampleRate(), 2e6, delta=1000)
+
+        # Clean up
+        device.releaseDevice()
+
+class SDRplayBaseTest(unittest.TestCase):
+    """Base class for SDRplay tests"""
+    
+    def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        logging.basicConfig(level=logging.DEBUG)
         self.device = sdrplay.Device()
-        self.logger.debug("Opening device")
-        self.assertTrue(self.device.open(), "Failed to open SDRPlay API")
-        self.logger.debug("Device opened successfully")
+        
+        # Get available devices
+        devices = self.device.getAvailableDevices()
+        if len(devices) == 0:
+            self.skipTest("No SDRPlay devices found")
+            
+        # Select first device by default
+        self.device_info = devices[0]
+        self.assertTrue(self.device.selectDevice(self.device_info))
 
     def tearDown(self):
-        self.logger.debug("Closing device")
-        self.device.close()
-        self.logger.debug("Device closed")
+        self.device.releaseDevice()
 
-    def _select_first_available_device(self):
-        """Helper to select first available device and return its info"""
-        devices = self.device.getAvailableDevices()
-        self.assertGreater(len(devices), 0, "No SDRPlay devices found")
-        device = devices[0]
-        self.assertTrue(self.device.selectDevice(device))
-        return device
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

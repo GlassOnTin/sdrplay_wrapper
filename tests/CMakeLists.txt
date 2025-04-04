@@ -1,27 +1,13 @@
-# tests/CMakeLists.txt
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+# Test configuration
+enable_testing()
 
-# Copy test files to build directory
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay.py
-    ${CMAKE_BINARY_DIR}/tests/test_sdrplay.py
-    COPYONLY
-)
+# Build test_sdrplay_api
+add_executable(test_sdrplay_api tests/test_sdrplay_api.cpp)
+target_link_libraries(test_sdrplay_api PRIVATE sdrplay_wrapper)
+add_test(NAME test_sdrplay_api COMMAND test_sdrplay_api)
 
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdrplay_parameters.py
-    ${CMAKE_BINARY_DIR}/tests/test_sdrplay_parameters.py
-    COPYONLY
-)
-
-# Add test command - using explicit test files like the Makefile
-add_test(
-    NAME python_tests
-    COMMAND ${Python3_EXECUTABLE} -m unittest test_sdrplay.py test_sdrplay_parameters.py -v
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
-)
-
-# Set environment variables for test - include both build and source paths
-set_tests_properties(python_tests PROPERTIES
-    ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}:${CMAKE_SOURCE_DIR}"
-)
+# Build test_device_registry with testing flag
+add_executable(test_device_registry tests/test_device_registry.cpp)
+target_link_libraries(test_device_registry PRIVATE sdrplay_wrapper)
+target_compile_definitions(test_device_registry PRIVATE SDRPLAY_TESTING)
+add_test(NAME test_device_registry COMMAND test_device_registry)

@@ -1,0 +1,44 @@
+UpdateCTestConfiguration  from :/home/ian/Code/wxsat/sdrplay_wrapper/build/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/ian/Code/wxsat/sdrplay_wrapper/build/DartConfiguration.tcl
+Test project /home/ian/Code/wxsat/sdrplay_wrapper/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: test_sdrplay_api
+
+1: Test command: /home/ian/Code/wxsat/sdrplay_wrapper/build/test_sdrplay_api
+1: Working Directory: /home/ian/Code/wxsat/sdrplay_wrapper/build
+1: Test timeout computed to be: 10000000
+1: Initial API Version call result: sdrplay_api_Fail
+1: API opened successfully, waiting for initialization...
+1: API Version call after init result: sdrplay_api_Success
+1: Runtime API Version: 3.15
+1: sdrplay_api_GetDevices result: sdrplay_api_Success
+1: Number of devices found: 1
+1: Device 1:
+1:   Serial Number: 24030AB670
+1:   Hardware Ver: 7
+1:   Tuner(s): A 
+1/2 Test #1: test_sdrplay_api .................   Passed    1.01 sec
+test 2
+    Start 2: test_device_registry
+
+2: Test command: /home/ian/Code/wxsat/sdrplay_wrapper/build/test_device_registry
+2: Working Directory: /home/ian/Code/wxsat/sdrplay_wrapper/build
+2: Test timeout computed to be: 10000000
+2: Starting device registry tests...
+2: Testing device creation...
+2: RSP1A device control created successfully
+2: test_device_registry: /home/ian/Code/wxsat/sdrplay_wrapper/tests/test_device_registry.cpp:49: void testDeviceCreation(): Assertion `mock != nullptr' failed.
+2/2 Test #2: test_device_registry .............Subprocess aborted***Exception:   0.07 sec
+
+50% tests passed, 1 tests failed out of 2
+
+Total Test time (real) =   1.08 sec
+
+The following tests FAILED:
+	  2 - test_device_registry (Subprocess aborted)

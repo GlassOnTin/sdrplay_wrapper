@@ -1,29 +1,54 @@
-// include/device_params/rsp1a_params.h
-#ifndef SDRPLAY_RSP1A_PARAMS_H
-#define SDRPLAY_RSP1A_PARAMS_H
-
-#include <memory>
+#pragma once
+#include "device_registry.h"
+#include "device_control.h"
+#include "device_parameters.h"
 
 namespace sdrplay {
 
-// Forward declare DeviceControl
-class DeviceControl;
-
-class Rsp1aParams {
+class RSP1AParameters : public DeviceParameters {
 public:
-    explicit Rsp1aParams(DeviceControl* deviceControl);
-    ~Rsp1aParams();
+    explicit RSP1AParameters(DeviceControl* control = nullptr)
+        : deviceControl(control) {}
 
-    void setBiasT(bool enable);
-    void setRfNotch(bool enable);
-    void setDabNotch(bool enable);
-    bool update();
+    std::string getDeviceName() const override { return "RSP1A"; }
+
+    void applyDefaults() override {
+        if (deviceControl) {
+            deviceControl->setFrequency(100.0e6);
+            deviceControl->setSampleRate(2.0e6);
+            deviceControl->setGainReduction(40);
+            deviceControl->setLNAState(0);
+        }
+    }
+
+    void setFrequency(double freq) override {
+        if (deviceControl) deviceControl->setFrequency(freq);
+    }
+
+    double getFrequency() const override {
+        return deviceControl ? deviceControl->getFrequency() : 0.0;
+    }
+
+    void setSampleRate(double rate) override {
+        if (deviceControl) deviceControl->setSampleRate(rate);
+    }
+
+    double getSampleRate() const override {
+        return deviceControl ? deviceControl->getSampleRate() : 0.0;
+    }
+
+    void setGainReduction(int gain) {
+        if (deviceControl) deviceControl->setGainReduction(gain);
+    }
+
+    void setLNAState(int state) {
+        if (deviceControl) deviceControl->setLNAState(state);
+    }
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> pimpl;
+    DeviceControl* deviceControl;
 };
 
-} // namespace sdrplay
+using Rsp1aParams = RSP1AParameters;
 
-#endif // SDRPLAY_RSP1A_PARAMS_H
+} // namespace sdrplay

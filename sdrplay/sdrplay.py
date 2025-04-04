@@ -118,78 +118,6 @@ class SwigPyIterator(object):
 
 # Register SwigPyIterator in _sdrplay:
 _sdrplay.SwigPyIterator_swigregister(SwigPyIterator)
-class BasicParams(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-    __repr__ = _swig_repr
-
-    def __init__(self, deviceControl):
-        _sdrplay.BasicParams_swiginit(self, _sdrplay.new_BasicParams(deviceControl))
-    __swig_destroy__ = _sdrplay.delete_BasicParams
-
-    def setSampleRate(self, sampleRateHz):
-        return _sdrplay.BasicParams_setSampleRate(self, sampleRateHz)
-
-    def setRfFrequency(self, frequencyHz):
-        return _sdrplay.BasicParams_setRfFrequency(self, frequencyHz)
-
-    def setBandwidth(self, bandwidthKHz):
-        return _sdrplay.BasicParams_setBandwidth(self, bandwidthKHz)
-
-    def setIfType(self, ifkHz):
-        return _sdrplay.BasicParams_setIfType(self, ifkHz)
-
-    def setGain(self, gainReduction, lnaState):
-        return _sdrplay.BasicParams_setGain(self, gainReduction, lnaState)
-
-    def update(self):
-        return _sdrplay.BasicParams_update(self)
-
-# Register BasicParams in _sdrplay:
-_sdrplay.BasicParams_swigregister(BasicParams)
-class ControlParams(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-    __repr__ = _swig_repr
-
-    def __init__(self, deviceControl):
-        _sdrplay.ControlParams_swiginit(self, _sdrplay.new_ControlParams(deviceControl))
-    __swig_destroy__ = _sdrplay.delete_ControlParams
-
-    def setAgcControl(self, enable, setPoint=-60):
-        return _sdrplay.ControlParams_setAgcControl(self, enable, setPoint)
-
-    def setDcOffset(self, dcEnable, iqEnable):
-        return _sdrplay.ControlParams_setDcOffset(self, dcEnable, iqEnable)
-
-    def setDecimation(self, enable, decimationFactor, wideBandSignal):
-        return _sdrplay.ControlParams_setDecimation(self, enable, decimationFactor, wideBandSignal)
-
-    def update(self):
-        return _sdrplay.ControlParams_update(self)
-
-# Register ControlParams in _sdrplay:
-_sdrplay.ControlParams_swigregister(ControlParams)
-class Rsp1aParams(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-    __repr__ = _swig_repr
-
-    def __init__(self, deviceControl):
-        _sdrplay.Rsp1aParams_swiginit(self, _sdrplay.new_Rsp1aParams(deviceControl))
-    __swig_destroy__ = _sdrplay.delete_Rsp1aParams
-
-    def setBiasT(self, enable):
-        return _sdrplay.Rsp1aParams_setBiasT(self, enable)
-
-    def setRfNotch(self, enable):
-        return _sdrplay.Rsp1aParams_setRfNotch(self, enable)
-
-    def setDabNotch(self, enable):
-        return _sdrplay.Rsp1aParams_setDabNotch(self, enable)
-
-    def update(self):
-        return _sdrplay.Rsp1aParams_update(self)
-
-# Register Rsp1aParams in _sdrplay:
-_sdrplay.Rsp1aParams_swigregister(Rsp1aParams)
 class DeviceInfoVector(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
@@ -295,20 +223,236 @@ class DeviceInfoVector(object):
 
 # Register DeviceInfoVector in _sdrplay:
 _sdrplay.DeviceInfoVector_swigregister(DeviceInfoVector)
+class StreamCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_StreamCallbackHandler
+
+    def handleStreamData(self, xi, xq, numSamples):
+        return _sdrplay.StreamCallbackHandler_handleStreamData(self, xi, xq, numSamples)
+
+# Register StreamCallbackHandler in _sdrplay:
+_sdrplay.StreamCallbackHandler_swigregister(StreamCallbackHandler)
+class GainCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_GainCallbackHandler
+
+    def handleGainChange(self, gRdB, lnaGRdB, currGain):
+        return _sdrplay.GainCallbackHandler_handleGainChange(self, gRdB, lnaGRdB, currGain)
+
+# Register GainCallbackHandler in _sdrplay:
+_sdrplay.GainCallbackHandler_swigregister(GainCallbackHandler)
+class PowerOverloadCallbackHandler(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+
+    def __init__(self, *args, **kwargs):
+        raise AttributeError("No constructor defined - class is abstract")
+    __repr__ = _swig_repr
+    __swig_destroy__ = _sdrplay.delete_PowerOverloadCallbackHandler
+
+    def handlePowerOverload(self, isOverloaded):
+        return _sdrplay.PowerOverloadCallbackHandler_handlePowerOverload(self, isOverloaded)
+
+# Register PowerOverloadCallbackHandler in _sdrplay:
+_sdrplay.PowerOverloadCallbackHandler_swigregister(PowerOverloadCallbackHandler)
+
+def initializeDeviceRegistry():
+    return _sdrplay.initializeDeviceRegistry()
+TunerSelect_Neither = _sdrplay.TunerSelect_Neither
+TunerSelect_A = _sdrplay.TunerSelect_A
+TunerSelect_B = _sdrplay.TunerSelect_B
+TunerSelect_Both = _sdrplay.TunerSelect_Both
+RspDuoMode_Unknown = _sdrplay.RspDuoMode_Unknown
+RspDuoMode_Single_Tuner = _sdrplay.RspDuoMode_Single_Tuner
+RspDuoMode_Dual_Tuner = _sdrplay.RspDuoMode_Dual_Tuner
+RspDuoMode_Master = _sdrplay.RspDuoMode_Master
+RspDuoMode_Slave = _sdrplay.RspDuoMode_Slave
 class DeviceInfo(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
     serialNumber = property(_sdrplay.DeviceInfo_serialNumber_get, _sdrplay.DeviceInfo_serialNumber_set)
-    hwVersion = property(_sdrplay.DeviceInfo_hwVersion_get, _sdrplay.DeviceInfo_hwVersion_set)
-    isTunerA = property(_sdrplay.DeviceInfo_isTunerA_get, _sdrplay.DeviceInfo_isTunerA_set)
-    isTunerB = property(_sdrplay.DeviceInfo_isTunerB_get, _sdrplay.DeviceInfo_isTunerB_set)
-    isRSPDuo = property(_sdrplay.DeviceInfo_isRSPDuo_get, _sdrplay.DeviceInfo_isRSPDuo_set)
+    hwVer = property(_sdrplay.DeviceInfo_hwVer_get, _sdrplay.DeviceInfo_hwVer_set)
+    tuner = property(_sdrplay.DeviceInfo_tuner_get, _sdrplay.DeviceInfo_tuner_set)
+    rspDuoMode = property(_sdrplay.DeviceInfo_rspDuoMode_get, _sdrplay.DeviceInfo_rspDuoMode_set)
+    valid = property(_sdrplay.DeviceInfo_valid_get, _sdrplay.DeviceInfo_valid_set)
+    rspDuoSampleFreq = property(_sdrplay.DeviceInfo_rspDuoSampleFreq_get, _sdrplay.DeviceInfo_rspDuoSampleFreq_set)
+    dev = property(_sdrplay.DeviceInfo_dev_get, _sdrplay.DeviceInfo_dev_set)
 
     def __init__(self):
-        r"""__init__(DeviceInfo self) -> DeviceInfo"""
         _sdrplay.DeviceInfo_swiginit(self, _sdrplay.new_DeviceInfo())
     __swig_destroy__ = _sdrplay.delete_DeviceInfo
 
 # Register DeviceInfo in _sdrplay:
 _sdrplay.DeviceInfo_swigregister(DeviceInfo)
+class BasicParams(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, deviceControl):
+        _sdrplay.BasicParams_swiginit(self, _sdrplay.new_BasicParams(deviceControl))
+    __swig_destroy__ = _sdrplay.delete_BasicParams
+
+    def setSampleRate(self, sampleRateHz):
+        return _sdrplay.BasicParams_setSampleRate(self, sampleRateHz)
+
+    def setRfFrequency(self, frequencyHz):
+        return _sdrplay.BasicParams_setRfFrequency(self, frequencyHz)
+
+    def setBandwidth(self, bandwidthKHz):
+        return _sdrplay.BasicParams_setBandwidth(self, bandwidthKHz)
+
+    def setIfType(self, ifkHz):
+        return _sdrplay.BasicParams_setIfType(self, ifkHz)
+
+    def setGain(self, gainReduction, lnaState):
+        return _sdrplay.BasicParams_setGain(self, gainReduction, lnaState)
+
+    def update(self):
+        return _sdrplay.BasicParams_update(self)
+
+# Register BasicParams in _sdrplay:
+_sdrplay.BasicParams_swigregister(BasicParams)
+cvar = _sdrplay.cvar
+RSP1_HWVER = cvar.RSP1_HWVER
+RSP1A_HWVER = cvar.RSP1A_HWVER
+RSP2_HWVER = cvar.RSP2_HWVER
+RSPDUO_HWVER = cvar.RSPDUO_HWVER
+RSPDX_HWVER = cvar.RSPDX_HWVER
+RSP1B_HWVER = cvar.RSP1B_HWVER
+RSPDXR2_HWVER = cvar.RSPDXR2_HWVER
+
+class ControlParams(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, deviceControl):
+        _sdrplay.ControlParams_swiginit(self, _sdrplay.new_ControlParams(deviceControl))
+    __swig_destroy__ = _sdrplay.delete_ControlParams
+
+    def setAgcControl(self, enable, setPoint=-60):
+        return _sdrplay.ControlParams_setAgcControl(self, enable, setPoint)
+
+    def setDcOffset(self, dcEnable, iqEnable):
+        return _sdrplay.ControlParams_setDcOffset(self, dcEnable, iqEnable)
+
+    def setDecimation(self, enable, decimationFactor, wideBandSignal):
+        return _sdrplay.ControlParams_setDecimation(self, enable, decimationFactor, wideBandSignal)
+
+    def update(self):
+        return _sdrplay.ControlParams_update(self)
+
+# Register ControlParams in _sdrplay:
+_sdrplay.ControlParams_swigregister(ControlParams)
+class RSP1AParameters(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, control=None):
+        _sdrplay.RSP1AParameters_swiginit(self, _sdrplay.new_RSP1AParameters(control))
+
+    def getDeviceName(self):
+        return _sdrplay.RSP1AParameters_getDeviceName(self)
+
+    def applyDefaults(self):
+        return _sdrplay.RSP1AParameters_applyDefaults(self)
+
+    def setFrequency(self, freq):
+        return _sdrplay.RSP1AParameters_setFrequency(self, freq)
+
+    def getFrequency(self):
+        return _sdrplay.RSP1AParameters_getFrequency(self)
+
+    def setSampleRate(self, rate):
+        return _sdrplay.RSP1AParameters_setSampleRate(self, rate)
+
+    def getSampleRate(self):
+        return _sdrplay.RSP1AParameters_getSampleRate(self)
+
+    def setGainReduction(self, gain):
+        return _sdrplay.RSP1AParameters_setGainReduction(self, gain)
+
+    def setLNAState(self, state):
+        return _sdrplay.RSP1AParameters_setLNAState(self, state)
+    __swig_destroy__ = _sdrplay.delete_RSP1AParameters
+
+# Register RSP1AParameters in _sdrplay:
+_sdrplay.RSP1AParameters_swigregister(RSP1AParameters)
+class RSPdxR2Parameters(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self, control=None):
+        _sdrplay.RSPdxR2Parameters_swiginit(self, _sdrplay.new_RSPdxR2Parameters(control))
+
+    def getDeviceName(self):
+        return _sdrplay.RSPdxR2Parameters_getDeviceName(self)
+
+    def applyDefaults(self):
+        return _sdrplay.RSPdxR2Parameters_applyDefaults(self)
+
+    def setFrequency(self, freq):
+        return _sdrplay.RSPdxR2Parameters_setFrequency(self, freq)
+
+    def getFrequency(self):
+        return _sdrplay.RSPdxR2Parameters_getFrequency(self)
+
+    def setSampleRate(self, rate):
+        return _sdrplay.RSPdxR2Parameters_setSampleRate(self, rate)
+
+    def getSampleRate(self):
+        return _sdrplay.RSPdxR2Parameters_getSampleRate(self)
+
+    def setHDRMode(self, enable):
+        return _sdrplay.RSPdxR2Parameters_setHDRMode(self, enable)
+
+    def setBiasTEnabled(self, enable):
+        return _sdrplay.RSPdxR2Parameters_setBiasTEnabled(self, enable)
+    __swig_destroy__ = _sdrplay.delete_RSPdxR2Parameters
+
+# Register RSPdxR2Parameters in _sdrplay:
+_sdrplay.RSPdxR2Parameters_swigregister(RSPdxR2Parameters)
+class Device(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+
+    def __init__(self):
+        _sdrplay.Device_swiginit(self, _sdrplay.new_Device())
+    __swig_destroy__ = _sdrplay.delete_Device
+
+    def selectDevice(self, deviceInfo):
+        return _sdrplay.Device_selectDevice(self, deviceInfo)
+
+    def releaseDevice(self):
+        return _sdrplay.Device_releaseDevice(self)
+
+    def getAvailableDevices(self):
+        return _sdrplay.Device_getAvailableDevices(self)
+
+    def setFrequency(self, freq):
+        return _sdrplay.Device_setFrequency(self, freq)
+
+    def getFrequency(self):
+        return _sdrplay.Device_getFrequency(self)
+
+    def setSampleRate(self, rate):
+        return _sdrplay.Device_setSampleRate(self, rate)
+
+    def getSampleRate(self):
+        return _sdrplay.Device_getSampleRate(self)
+
+    def getRsp1aParams(self):
+        return _sdrplay.Device_getRsp1aParams(self)
+
+    def getRspDxR2Params(self):
+        return _sdrplay.Device_getRspDxR2Params(self)
+
+# Register Device in _sdrplay:
+_sdrplay.Device_swigregister(Device)
 

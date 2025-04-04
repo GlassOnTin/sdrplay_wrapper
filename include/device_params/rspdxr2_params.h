@@ -1,27 +1,54 @@
-// include/device_params/rsp1a_params.h
-#ifndef SDRPLAY_RSPDXR2_PARAMS_H
-#define SDRPLAY_RSPDXR2_PARAMS_H
-
-#include <memory>
+#pragma once
+#include "device_registry.h"
+#include "device_control.h"
+#include "device_parameters.h"
 
 namespace sdrplay {
 
-// Forward declare DeviceControl
-class DeviceControl;
-
-class RspDxR2Params {
+class RSPdxR2Parameters : public DeviceParameters {
 public:
-    explicit RspDxR2Params(DeviceControl* deviceControl);
-    ~RspDxR2Params();
+    explicit RSPdxR2Parameters(DeviceControl* control = nullptr)
+        : deviceControl(control) {}
 
-    // TODO: Add RSPdxR2-specific methods
+    std::string getDeviceName() const override { return "RSPdxR2"; }
 
-    bool update();
+    void applyDefaults() override {
+        if (deviceControl) {
+            deviceControl->setFrequency(100.0e6);
+            deviceControl->setSampleRate(2.0e6);
+            deviceControl->setHDRMode(false);
+            deviceControl->setBiasTEnabled(false);
+        }
+    }
+
+    void setFrequency(double freq) override {
+        if (deviceControl) deviceControl->setFrequency(freq);
+    }
+
+    double getFrequency() const override {
+        return deviceControl ? deviceControl->getFrequency() : 0.0;
+    }
+
+    void setSampleRate(double rate) override {
+        if (deviceControl) deviceControl->setSampleRate(rate);
+    }
+
+    double getSampleRate() const override {
+        return deviceControl ? deviceControl->getSampleRate() : 0.0;
+    }
+
+    void setHDRMode(bool enable) {
+        if (deviceControl) deviceControl->setHDRMode(enable);
+    }
+
+    void setBiasTEnabled(bool enable) {
+        if (deviceControl) deviceControl->setBiasTEnabled(enable);
+    }
+
 private:
-    struct Impl;
-    std::unique_ptr<Impl> pimpl;
+    DeviceControl* deviceControl;
 };
 
-} // namespace sdrplay
+using Rspdxr2Params = RSPdxR2Parameters;
 
-#endif // SDRPLAY_RSPDXR2_PARAMS_H
+} // namespace sdrplay

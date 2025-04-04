@@ -1,22 +1,17 @@
-// src/device_control.cpp
 #include "device_control.h"
 #include <stdexcept>
+#include <cstring>
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 namespace sdrplay {
 
 struct DeviceControl::Impl {
-    sdrplay_api_DeviceT deviceStorage;
-    sdrplay_api_DeviceT* device;
-    sdrplay_api_DeviceParamsT* deviceParams;
+    sdrplay_api_DeviceT* currentDevice{nullptr};
+    sdrplay_api_DeviceParamsT* deviceParams{nullptr};
     std::string lastError;
-
-    Impl() : device(nullptr), deviceParams(nullptr) {}
 };
 
-DeviceControl::DeviceControl() : pimpl(new Impl()) {}
+DeviceControl::DeviceControl() : impl(std::make_unique<Impl>()) {}
 
 DeviceControl::~DeviceControl() {
     close();
@@ -25,64 +20,64 @@ DeviceControl::~DeviceControl() {
 bool DeviceControl::open() {
     sdrplay_api_ErrT err = sdrplay_api_Open();
     if (err != sdrplay_api_Success) {
-        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        impl->lastError = sdrplay_api_GetErrorString(err);
         return false;
     }
-
-    // Wait for API to initialize
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    // Verify API version
-    float version;
-    err = sdrplay_api_ApiVersion(&version);
-    if (err != sdrplay_api_Success || version != SDRPLAY_API_VERSION) {
-        pimpl->lastError = "API initialization failed or version mismatch";
-        sdrplay_api_Close();
-        return false;
-    }
-
     return true;
 }
 
 void DeviceControl::close() {
-    if (pimpl->device) {
-        sdrplay_api_ReleaseDevice(pimpl->device);
-        pimpl->device = nullptr;
-        pimpl->deviceParams = nullptr;
+    if (impl->currentDevice) {
+        releaseDevice();
+        sdrplay_api_Close();
+        impl->currentDevice = nullptr;
+        impl->deviceParams = nullptr;
     }
 }
 
 float DeviceControl::getApiVersion() const {
-    float version;
-    sdrplay_api_ErrT err = sdrplay_api_ApiVersion(&version);
-    if (err != sdrplay_api_Success) {
-        pimpl->lastError = sdrplay_api_GetErrorString(err);
-        return SDRPLAY_API_VERSION;
-    }
+    float version = 0.0f;
+    sdrplay_api_ApiVersion(&version);
     return version;
 }
 
 std::vector<DeviceInfo> DeviceControl::getAvailableDevices() {
     std::vector<DeviceInfo> result;
-    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
-    unsigned int numDevs;
+    
+    // Make sure the API is opened
+    if (open()) {
+        std::cout << "API successfully opened" << std::endl;
+    } else {
+        std::cerr << "Failed to open API: " << impl->lastError << std::endl;
+        return result;
+    }
 
+    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
+    unsigned int numDevs = 0;
+
+    std::cout << "Getting device list..." << std::endl;
     sdrplay_api_LockDeviceApi();
-    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    auto err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+
+    std::cout << "GetDevices result: " << sdrplay_api_GetErrorString(err) << std::endl;
+    std::cout << "Found " << numDevs << " devices" << std::endl;
 
     if (err == sdrplay_api_Success) {
-        result.reserve(numDevs);
         for (unsigned int i = 0; i < numDevs; i++) {
             DeviceInfo info;
             info.serialNumber = devices[i].SerNo;
-            info.hwVersion = devices[i].hwVer;
-            info.isTunerA = (devices[i].tuner & sdrplay_api_Tuner_A) != 0;
-            info.isTunerB = (devices[i].tuner & sdrplay_api_Tuner_B) != 0;
-            info.isRSPDuo = (devices[i].hwVer == SDRPLAY_RSPduo_ID);
+            info.hwVer = devices[i].hwVer;
+            info.tuner = static_cast<TunerSelect>(devices[i].tuner);
+            info.valid = devices[i].valid;
+            info.dev = devices[i].dev;
+            
+            std::cout << "Device " << i+1 << ": " << info.serialNumber 
+                      << " (hwVer=" << static_cast<int>(info.hwVer) << ")" << std::endl;
             result.push_back(info);
         }
     } else {
-        pimpl->lastError = sdrplay_api_GetErrorString(err);
+        impl->lastError = sdrplay_api_GetErrorString(err);
+        std::cerr << "Failed to get devices: " << impl->lastError << std::endl;
     }
 
     sdrplay_api_UnlockDeviceApi();
@@ -90,69 +85,63 @@ std::vector<DeviceInfo> DeviceControl::getAvailableDevices() {
 }
 
 bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
-    sdrplay_api_DeviceT devices[SDRPLAY_MAX_DEVICES];
-    unsigned int numDevs;
+    sdrplay_api_DeviceT device;
+    device.hwVer = deviceInfo.hwVer;
+    device.tuner = static_cast<sdrplay_api_TunerSelectT>(deviceInfo.tuner);
+    device.valid = deviceInfo.valid;
+    device.dev = deviceInfo.dev;
+    std::strncpy(device.SerNo, deviceInfo.serialNumber.c_str(), SDRPLAY_MAX_SER_NO_LEN - 1);
+    device.SerNo[SDRPLAY_MAX_SER_NO_LEN - 1] = '\0'; // Ensure null termination
 
-    sdrplay_api_LockDeviceApi();
-    sdrplay_api_ErrT err = sdrplay_api_GetDevices(devices, &numDevs, SDRPLAY_MAX_DEVICES);
+    auto err = sdrplay_api_SelectDevice(&device);
     if (err != sdrplay_api_Success) {
-        pimpl->lastError = sdrplay_api_GetErrorString(err);
-        sdrplay_api_UnlockDeviceApi();
+        impl->lastError = sdrplay_api_GetErrorString(err);
+        std::cerr << "Failed to select device: " << impl->lastError << std::endl;
         return false;
     }
 
-    bool found = false;
-    for (unsigned int i = 0; i < numDevs; i++) {
-        if (devices[i].SerNo == deviceInfo.serialNumber) {
-            err = sdrplay_api_SelectDevice(&devices[i]);
-            if (err == sdrplay_api_Success) {
-                pimpl->deviceStorage = devices[i];
-                pimpl->device = &pimpl->deviceStorage;
+    // Store device handle
+    if (impl->currentDevice) {
+        delete impl->currentDevice;
+    }
+    impl->currentDevice = new sdrplay_api_DeviceT(device);
 
-                err = sdrplay_api_GetDeviceParams(pimpl->device->dev, &pimpl->deviceParams);
-                if (err != sdrplay_api_Success) {
-                    pimpl->lastError = sdrplay_api_GetErrorString(err);
-                    pimpl->device = nullptr;
-                    break;
-                }
-                found = true;
-            } else {
-                pimpl->lastError = sdrplay_api_GetErrorString(err);
-            }
-            break;
-        }
+    // Get device parameters
+    err = sdrplay_api_GetDeviceParams(device.dev, &impl->deviceParams);
+    if (err != sdrplay_api_Success) {
+        impl->lastError = sdrplay_api_GetErrorString(err);
+        std::cerr << "Failed to get device parameters: " << impl->lastError << std::endl;
+        return false;
     }
 
-    sdrplay_api_UnlockDeviceApi();
-    return found;
+    return true;
 }
 
 bool DeviceControl::releaseDevice() {
-    if (!pimpl->device) return false;
-
-    sdrplay_api_ErrT err = sdrplay_api_ReleaseDevice(pimpl->device);
-    if (err != sdrplay_api_Success) {
-        pimpl->lastError = sdrplay_api_GetErrorString(err);
-        return false;
+    if (impl->currentDevice) {
+        auto err = sdrplay_api_ReleaseDevice(impl->currentDevice);
+        if (err != sdrplay_api_Success) {
+            impl->lastError = sdrplay_api_GetErrorString(err);
+            std::cerr << "Failed to release device: " << impl->lastError << std::endl;
+            return false;
+        }
+        delete impl->currentDevice;
+        impl->currentDevice = nullptr;
+        impl->deviceParams = nullptr;
     }
-    pimpl->device = nullptr;
-    pimpl->deviceParams = nullptr;
     return true;
 }
 
 sdrplay_api_DeviceT* DeviceControl::getCurrentDevice() const {
-    if (!pimpl->device) {
-        std::cerr << "DeviceControl::getCurrentDevice - No device selected" << std::endl;
-    }
-    return pimpl->device;
+    return impl->currentDevice;
 }
 
 sdrplay_api_DeviceParamsT* DeviceControl::getDeviceParams() const {
-    return pimpl->deviceParams;
+    return impl->deviceParams;
 }
 
 std::string DeviceControl::getLastError() const {
-    return pimpl->lastError;
+    return impl->lastError;
 }
 
 } // namespace sdrplay

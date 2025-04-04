@@ -1,75 +1,75 @@
 %module sdrplay
-
-// Handle std::vector and std::string first
-%include <std_vector.i>
-%include <std_string.i>
-
 %{
-#include <sdrplay_api.h>
+#include "device_types.h"
+#include "device_parameters.h"
+#include "basic_params.h"
+#include "control_params.h"
+#include "device_params/rsp1a_params.h"
+#include "device_params/rspdxr2_params.h"
 #include "sdrplay_wrapper.h"
-using namespace sdrplay;
+#include "device_registry.h"
+#include "device_impl/rsp1a_control.h"
+#include "device_impl/rspdxr2_control.h"
+#include <memory>
 %}
 
-// Include all the parameter header files
-%include "basic_params.h"
-%include "control_params.h"
-%include "device_params/rsp1a_params.h"
+%include <std_string.i>
+%include <std_vector.i>
+%include <std_map.i>
 
-// Handle exceptions
-%include "exception.i"
-%exception {
-    try {
-        $action
-    }
-    catch (const std::exception& e) {
-        SWIG_exception(SWIG_RuntimeError, e.what());
-    }
-}
+// Template instantiations for STL containers
+%template(DeviceInfoVector) std::vector<sdrplay::DeviceInfo>;
 
-// Create Python callback interfaces
+// Enable exceptions
+%catches(std::runtime_error);
+
+// Define callback interfaces for Python
 %feature("director") sdrplay::StreamCallbackHandler;
-%feature("director:except") {
-    if ($error != NULL) {
-        PyErr_Print();
-    }
-}
-
-// Single definition of the callback handler implementation and extend
-%{
-class StreamCallbackHandlerImpl : public sdrplay::StreamCallbackHandler {
-public:
-    virtual void handleStreamData(const int16_t* xi, const int16_t* xq, size_t numSamples) override {
-        // Default implementation
-    }
-};
-%}
-
-%extend sdrplay::StreamCallbackHandler {
-    StreamCallbackHandler() { return new StreamCallbackHandlerImpl(); }
-}
-
 %feature("director") sdrplay::GainCallbackHandler;
 %feature("director") sdrplay::PowerOverloadCallbackHandler;
 
-// Forward declare the DeviceInfo type
-%typemap(out) std::vector<sdrplay::DeviceInfo> %{
-    $result = SWIG_NewPointerObj(new std::vector<sdrplay::DeviceInfo>($1),
-        $descriptor(std::vector<sdrplay::DeviceInfo>*), SWIG_POINTER_OWN);
+// Callback handlers - define these in SWIG-space only
+%inline %{
+namespace sdrplay {
+    class StreamCallbackHandler {
+    public:
+        virtual ~StreamCallbackHandler() {}
+        virtual void handleStreamData(short* xi, short* xq, unsigned int numSamples) = 0;
+    };
+    
+    class GainCallbackHandler {
+    public:
+        virtual ~GainCallbackHandler() {}
+        virtual void handleGainChange(int gRdB, int lnaGRdB, float currGain) = 0;
+    };
+    
+    class PowerOverloadCallbackHandler {
+    public:
+        virtual ~PowerOverloadCallbackHandler() {}
+        virtual void handlePowerOverload(bool isOverloaded) = 0;
+    };
+    
+    // Explicitly register device factories for Python
+    void initializeDeviceRegistry() {
+        DeviceRegistry::registerFactory(RSP1A_HWVER,
+            []() { return std::make_unique<RSP1AControl>(); });
+        DeviceRegistry::registerFactory(RSPDXR2_HWVER,
+            []() { return std::make_unique<RSPdxR2Control>(); });
+    }
+}
 %}
 
-%template(DeviceInfoVector) std::vector<sdrplay::DeviceInfo>;
+// Ignore implementation details that SWIG can't handle
+%ignore sdrplay::Device::Device(Device&&);
+%ignore sdrplay::Device::operator=(Device&&);
+%ignore sdrplay::Device::pimpl;
 
-// Explicitly declare the DeviceInfo struct for SWIG
-namespace sdrplay {
-    struct DeviceInfo {
-        std::string serialNumber;
-        int hwVersion;
-        bool isTunerA;
-        bool isTunerB;
-        bool isRSPDuo;
-    };
-}
+// Include headers
+%include "device_types.h"
+%include "basic_params.h"
+%include "control_params.h"
+%include "device_params/rsp1a_params.h"
+%include "device_params/rspdxr2_params.h"
 
-// Add cleanup for vectors
-%feature("autodoc", "1");
-%feature("newfree") std::vector<sdrplay::DeviceInfo> "delete $this;";
+// Finally include the main wrapper
+%include "sdrplay_wrapper.h"

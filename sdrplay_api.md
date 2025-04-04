@@ -22,31 +22,19 @@ Up to 2.x Various Support up to 2.x API (See old API documentation) APC
 
 3.07 8 th June 2020
 
-```
 Added debug function, fixed RSP1A Bias-T
 operation
-```
-```
 APC
-```
 3.08 13 th September 2021
 
-```
 Low power mode check, DeviceT valid flag,
 master/slave DAB mode
-```
-```
 APC
-```
 3.09 23 rd November 2021
 
-```
 RSPdx 50 MHz band, bug fixes including start-up
 & recovery state conditions)
-```
-```
 APC
-```
 3.10 10 th May 2022 User mode (WinUSB) driver + ARM64 support APC
 
 3.11 5 th September 2022 Fixes to surprise removal and service start-up APC
@@ -55,85 +43,78 @@ APC
 
 3.13 10 th August 2023 Internal only APC
 
-3. 14 26 th January 2024 Added RSP1B Support APC
-
+14 26 th January 2024 Added RSP1B Support APC
 3.15 10 th May 202 4 Added RSPdxR2 Support APC
 
+User Guide
+1 Introduction Contents
+2 API Data Types
+2.1 sdrplay_api.h
+2.1.1 API Functions...........................................................................................................................
+2.1.2 Constant Definitions
+2.1.3 Enumerated Data Types
+2.1.4 Data Structures
+2.2 sdrplay_api_rx_channel.h
+2.2.1 Data Structures
+2.3 sdrplay_api_dev.h
+2.3.1 Enumerated Data Types
+2.3.2 Data Structures
+2.4 sdrplay_api_tuner.h
+2.4.1 Constant Definitions
+2.4.2 Enumerated Data Types
+2.4.3 Data Structures
+2.5 sdrplay_api_control.h
+2.5.1 Enumerated Data Types
+2.5.2 Data Structures
+2.5.3 Valid Setpoint Values vs Sample Rate
+2.6 sdrplay_api_rsp1a.h
+2.6.1 Constant Definitions
+2.7 sdrplay_api_rsp2.h
+2.7.1 Constant Definitions
+2.7.2 Enumerated Data Types
+2.7.3 Data Structures
+2.8 sdrplay_api_rspDuo.h..................................................................................................................
+2.8.1 Constant Definitions
+2.8.2 Enumerated Data Types
+2.8.3 Data Structures
+2.9 sdrplay_api_rspDx.h
+2.9.1 Constant Definitions
+2.9.2 Enumerated Data Types
+2.9.3 Data Structures
+2.10 sdrplay_api_callback.h
+2.10.1 Enumerated Data Types
+2.10.2 Data Structures
+2.10.3 Callback Function Prototypes
+3 Function Descriptions
+3.1 sdrplay_api_Open
+3.2 sdrplay_api_Close
+3.3 sdrplay_api_ApiVersion
+3.4 sdrplay_api_LockDeviceApi
+3.5 sdrplay_api_UnlockDeviceApi
+3.6 sdrplay_api_GetDevices
+3.7 sdrplay_api_SelectDevice
+3.8 sdrplay_api_ReleaseDevice
+3.9 sdrplay_api_GetErrorString
+3.10 sdrplay_api_GetLastError User Guide
+3.11 sdrplay_api_GetLastErrorByType
+3.12 sdrplay_api_DisableHeartbeat
+3.13 sdrplay_api_DebugEnable......................................................................................................
+3.14 sdrplay_api_GetDeviceParams
+3.15 sdrplay_api_Init
+3.16 sdrplay_api_Uninit
+3.17 sdrplay_api_Update
+3.18 sdrplay_api_SwapRspDuoActiveTuner
+3.19 sdrplay_api_SwapRspDuoDualTunerModeSampleRate
+3.20 sdrplay_api_SwapRspDuoMode
+3.21 Streaming Data Callback
+3.22 Event Callback
+4 API Usage
+5 Gain Reduction Tables
+6 API File Location
+7 Legal Information
+User Guide
 
-## User Guide
-
-
-- 1 Introduction Contents
-- 2 API Data Types
-   - 2.1 sdrplay_api.h
-      - 2.1.1 API Functions...........................................................................................................................
-      - 2.1.2 Constant Definitions
-      - 2.1.3 Enumerated Data Types
-      - 2.1.4 Data Structures
-   - 2.2 sdrplay_api_rx_channel.h
-      - 2.2.1 Data Structures
-   - 2.3 sdrplay_api_dev.h
-      - 2.3.1 Enumerated Data Types
-      - 2.3.2 Data Structures
-   - 2.4 sdrplay_api_tuner.h
-      - 2.4.1 Constant Definitions
-      - 2.4.2 Enumerated Data Types
-      - 2.4.3 Data Structures
-   - 2.5 sdrplay_api_control.h
-      - 2.5.1 Enumerated Data Types
-      - 2.5.2 Data Structures
-      - 2.5.3 Valid Setpoint Values vs Sample Rate
-   - 2.6 sdrplay_api_rsp1a.h
-      - 2.6.1 Constant Definitions
-   - 2.7 sdrplay_api_rsp2.h
-      - 2.7.1 Constant Definitions
-      - 2.7.2 Enumerated Data Types
-      - 2.7.3 Data Structures
-   - 2.8 sdrplay_api_rspDuo.h..................................................................................................................
-      - 2.8.1 Constant Definitions
-      - 2.8.2 Enumerated Data Types
-      - 2.8.3 Data Structures
-   - 2.9 sdrplay_api_rspDx.h
-      - 2.9.1 Constant Definitions
-      - 2.9.2 Enumerated Data Types
-      - 2.9.3 Data Structures
-   - 2.10 sdrplay_api_callback.h
-      - 2.10.1 Enumerated Data Types
-      - 2.10.2 Data Structures
-      - 2.10.3 Callback Function Prototypes
-- 3 Function Descriptions
-   - 3.1 sdrplay_api_Open
-   - 3.2 sdrplay_api_Close
-   - 3.3 sdrplay_api_ApiVersion
-   - 3.4 sdrplay_api_LockDeviceApi
-   - 3.5 sdrplay_api_UnlockDeviceApi
-   - 3.6 sdrplay_api_GetDevices
-   - 3.7 sdrplay_api_SelectDevice
-   - 3.8 sdrplay_api_ReleaseDevice
-   - 3.9 sdrplay_api_GetErrorString
-   - 3.10 sdrplay_api_GetLastError User Guide
-   - 3.11 sdrplay_api_GetLastErrorByType
-   - 3.12 sdrplay_api_DisableHeartbeat
-   - 3.13 sdrplay_api_DebugEnable......................................................................................................
-   - 3.14 sdrplay_api_GetDeviceParams
-   - 3.15 sdrplay_api_Init
-   - 3.16 sdrplay_api_Uninit
-   - 3.17 sdrplay_api_Update
-   - 3.18 sdrplay_api_SwapRspDuoActiveTuner
-   - 3.19 sdrplay_api_SwapRspDuoDualTunerModeSampleRate
-   - 3.20 sdrplay_api_SwapRspDuoMode
-   - 3.21 Streaming Data Callback
-   - 3.22 Event Callback
-- 4 API Usage
-- 5 Gain Reduction Tables
-- 6 API File Location
-- 7 Legal Information
-
-
-**User Guide**
-
-## 1 Introduction Contents
-
+1 Introduction Contents
 This document provides a description of the SDRplay Software Defined Radio API. This API provides a
 common interface to the RSP1, RSP 2 , RSP2pro, RSP1A, RSP1B, RSPduo, RSPdx and the RSPdxR2 from
 
@@ -149,10 +130,9 @@ application.
 
 The basic method of operation is in 3 main stages...
 
-1. Set the API parameters based on the selected device
-2. Initialise the device to start the stream
-3. Change variables and perform an update to the API
-
+Set the API parameters based on the selected device
+Initialise the device to start the stream
+Change variables and perform an update to the API
 This process can be seen in the example code in section 4.
 
 The first function call must be to sdrplay_api_Open() and the last must be to sdrplay_api_Close()
@@ -194,11 +174,9 @@ Note: for the RSP1B, use RSP1A update and structure parameters.
 
 Note: for the RSPdxR2, use RSPdx update and structure parameters.
 
+User Guide
 
-**User Guide**
-
-## 2 API Data Types
-
+2 API Data Types
 The header files providing the definitions of the external data types and functions provided by this API
 
 are:
@@ -214,16 +192,14 @@ sdrplay_api_rspDuo.h
 sdrplay_api_rspDx.h
 sdrplay_api_callback.h
 
-### 2.1 sdrplay_api.h
-
+2.1 sdrplay_api.h
 The top-level header file to be included in all applications making use of the sdrplay_api API. Defines
 
 the available functions and the structures used by them - further detail of sub-structures is contained
 
 in the subsequent sections describing the contents of each header file.
 
-#### 2.1.1 API Functions...........................................................................................................................
-
+2.1.1 API Functions...........................................................................................................................
 sdrplay_api_ErrT sdrplay_api_Open(void);
 sdrplay_api_ErrT sdrplay_api_Close(void);
 sdrplay_api_ErrT sdrplay_api_ApiVersion(float *apiVer);
@@ -232,10 +208,10 @@ sdrplay_api_ErrT sdrplay_api_UnlockDeviceApi(void);
 sdrplay_api_ErrT sdrplay_api_GetDevices(sdrplay_api_DeviceT *devices,
 unsigned int *numDevs,
 unsigned int maxDevs);
-sdrplay_api_ErrT sdrplay_api_SelectDevice(sdrplay_api_DeviceT *device);
-sdrplay_api_ErrT sdrplay_api_ReleaseDevice(sdrplay_api_DeviceT *device);
-const char* sdrplay_api_GetErrorString(sdrplay_api_ErrT err);
-sdrplay_api_ErrorInfoT* sdrplay_api_GetLastError(sdrplay_api_DeviceT *device);
+sdrplay_api_ErrT sdrplay_api_SelectDevice(sdrplay_api_DeviceT device);
+sdrplay_api_ErrT sdrplay_api_ReleaseDevice(sdrplay_api_DeviceT device);
+const char sdrplay_api_GetErrorString(sdrplay_api_ErrT err);
+sdrplay_api_ErrorInfoT sdrplay_api_GetLastError(sdrplay_api_DeviceT *device);
 sdrplay_api_ErrT sdrplay_api_GetLastErrorByType(sdrplay_api_DeviceT *device,
 int type,
 unsigned long long *time);
@@ -268,11 +244,9 @@ sdrplay_api_Bw_MHzT bwType,
 sdrplay_api_If_kHzT ifType,
 sdrplay_api_RspDuo_AmPortSelectT tuner1AmPortSel);
 
+User Guide
 
-**User Guide**
-
-#### 2.1.2 Constant Definitions
-
+2.1.2 Constant Definitions
 #define SDRPLAY_API_VERSION (float)(3. 15 )
 #define SDRPLAY_MAX_DEVICES (16) // Maximum devices supported by the API
 #define SDRPLAY_MAX_TUNERS_PER_DEVICE (2) // Maximum number of tuners available on one device
@@ -289,8 +263,7 @@ sdrplay_api_RspDuo_AmPortSelectT tuner1AmPortSel);
 #define SDRPLAY_RSP1B_ID (6)
 #define SDRPLAY_RSPdxR2_ID (7)
 
-#### 2.1.3 Enumerated Data Types
-
+2.1.3 Enumerated Data Types
 Error Code Enumerated Type:
 
 typedef enum
@@ -333,8 +306,7 @@ sdrplay_api_DbgLvl_Error = 3,
 sdrplay_api_DbgLvl_Message = 4,
 } sdrplay_api_DbgLvl_t;
 
-
-**User Guide**
+User Guide
 Update Enumerated Type:
 
 typedef enum
@@ -402,11 +374,9 @@ sdrplay_api_Update_RspDuo_ResetSlaveFlags = 0x00000040,
 // Reasons for master and slave mode
 } sdrplay_api_ReasonForUpdateExtension1T;
 
+User Guide
 
-**User Guide**
-
-#### 2.1.4 Data Structures
-
+2.1.4 Data Structures
 Device enumeration structure:
 
 typedef struct
@@ -462,13 +432,10 @@ int line; // line number that the error occurred on
 char message[1024]; // Readable API error message to display
 } sdrplay_api_ErrorInfoT;
 
+User Guide
 
-**User Guide**
-
-### 2.2 sdrplay_api_rx_channel.h
-
-#### 2.2.1 Data Structures
-
+2.2 sdrplay_api_rx_channel.h
+2.2.1 Data Structures
 Receive Channel Structure:
 
 typedef struct
@@ -481,15 +448,12 @@ sdrplay_api_RspDuoTunerParamsT rspDuoTunerParams;
 sdrplay_api_RspDxTunerParamsT rspDxTunerParams;
 } sdrplay_api_RxChannelParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.3 sdrplay_api_dev.h
-
+2.3 sdrplay_api_dev.h
 Provides definitions of non-tuner related parameters
 
-#### 2.3.1 Enumerated Data Types
-
+2.3.1 Enumerated Data Types
 Transfer Mode Enumerated Type:
 
 typedef enum
@@ -498,8 +462,7 @@ sdrplay_api_ISOCH = 0,
 sdrplay_api_BULK = 1
 } sdrplay_api_TransferModeT;
 
-#### 2.3.2 Data Structures
-
+2.3.2 Data Structures
 Default values for each parameter are given - for sub-structures, the default values will be given in the
 
 structure definition for that type.
@@ -546,17 +509,13 @@ sdrplay_api_RspDuoParamsT rspDuoParams;
 sdrplay_api_RspDxParamsT rspDxParams;
 } sdrplay_api_DevParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.4 sdrplay_api_tuner.h
-
-#### 2.4.1 Constant Definitions
-
+2.4 sdrplay_api_tuner.h
+2.4.1 Constant Definitions
 #define MAX_BB_GR (59) // Maximum baseband gain reduction
 
-#### 2.4.2 Enumerated Data Types
-
+2.4.2 Enumerated Data Types
 Bandwidth Enumerated Type:
 
 typedef enum
@@ -612,11 +571,9 @@ sdrplay_api_Tuner_B = 2,
 sdrplay_api_Tuner_Both = 3,
 } sdrplay_api_TunerSelectT;
 
+User Guide
 
-**User Guide**
-
-#### 2.4.3 Data Structures
-
+2.4.3 Data Structures
 Current Gain Value Structure:
 
 typedef struct
@@ -652,9 +609,9 @@ typedef struct
 unsigned char dcCal; // default: 3 (Periodic mode)
 unsigned char speedUp; // default: 0 (No speedup)
 int trackTime; // default: 1
-// (=> time in uSec = (dcCal*3*trackTime) = 9uSec)
+// (=> time in uSec = (dcCal3trackTime) = 9uSec)
 int refreshRateTime; // default: 2048
-// (=> time in uSec = (dcCal*3*refreshRateTime) = 18432uSec)
+// (=> time in uSec = (dcCal3refreshRateTime) = 18432uSec)
 } sdrplay_api_DcOffsetTunerT;
 
 Tuner Parameter Structure:
@@ -670,13 +627,10 @@ sdrplay_api_RfFreqT rfFreq;
 sdrplay_api_DcOffsetTunerT dcOffsetTuner;
 } sdrplay_api_TunerParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.5 sdrplay_api_control.h
-
-#### 2.5.1 Enumerated Data Types
-
+2.5 sdrplay_api_control.h
+2.5.1 Enumerated Data Types
 AGC Loop Bandwidth Enumerated Type:
 
 typedef enum
@@ -698,8 +652,7 @@ sdrplay_api_ADSB_NO_DECIMATION_BANDPASS_2MHZ = 2,
 sdrplay_api_ADSB_NO_DECIMATION_BANDPASS_3MHZ = 3
 } sdrplay_api_AdsbModeT;
 
-#### 2.5.2 Data Structures
-
+2.5.2 Data Structures
 DC Offset Control Parameters Structure:
 
 typedef struct
@@ -740,29 +693,22 @@ sdrplay_api_AgcT agc;
 sdrplay_api_AdsbModeT adsbMode; //default: sdrplay_api_ADSB_DECIMATION
 } sdrplay_api_ControlParamsT;
 
+User Guide
 
-**User Guide**
-
-#### 2.5.3 Valid Setpoint Values vs Sample Rate
-
-- 72 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
-
+2.5.3 Valid Setpoint Values vs Sample Rate
+72 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
 rates < 8.064 MSPS
 
-- 60 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
-
+60 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
 rates in the range 8.064 – 9.216 MSPS
 
-- 48 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
-
+48 <= setpoint_dBfs <= -20dB (or 0dB depending on setting of sdrplay_api_GainT.minGr) for sample
 rates > 9.216 MSPS)
 
-### 2.6 sdrplay_api_rsp1a.h
-
+2.6 sdrplay_api_rsp1a.h
 Note: these parameters are also for the RSP1B
 
-#### 2.6.1 Constant Definitions
-
+2.6.1 Constant Definitions
 #define RSPIA_NUM_LNA_STATES 10 // Number of LNA states in all bands (except where
 defined differently below)
 #define RSPIA_NUM_LNA_STATES_AM 7 // Number of LNA states in AM band
@@ -785,20 +731,16 @@ typedef struct
 unsigned char biasTEnable; // default: 0
 } sdrplay_api_Rsp1aTunerParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.7 sdrplay_api_rsp2.h
-
-#### 2.7.1 Constant Definitions
-
+2.7 sdrplay_api_rsp2.h
+2.7.1 Constant Definitions
 #define RSPII_NUM_LNA_STATES 9 // Number of LNA states in in all bands (except
 where defined differently below)
 #define RSPII_NUM_LNA_STATES_AMPORT 5 // Number of LNA states for HiZ port
 #define RSPII_NUM_LNA_STATES_420MHZ 6 // Number of LNA states in 420MHz band
 
-#### 2.7.2 Enumerated Data Types
-
+2.7.2 Enumerated Data Types
 RSP2 Antenna Selection Enumerated Type:
 
 typedef enum
@@ -815,8 +757,7 @@ sdrplay_api_Rsp2_AMPORT_1 = 1,
 sdrplay_api_Rsp2_AMPORT_2 = 0,
 } sdrplay_api_Rsp2_AmPortSelectT;
 
-#### 2.7.3 Data Structures
-
+2.7.3 Data Structures
 RSP2 External Reference Control Parameters Structure:
 
 typedef struct
@@ -834,21 +775,17 @@ sdrplay_api_Rsp2_AntennaSelectT antennaSel; // default: sdrplay_api_Rsp2_ANTENNA
 unsigned char rfNotchEnable; // default: 0
 } sdrplay_api_Rsp2TunerParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.8 sdrplay_api_rspDuo.h..................................................................................................................
-
-#### 2.8.1 Constant Definitions
-
+2.8 sdrplay_api_rspDuo.h..................................................................................................................
+2.8.1 Constant Definitions
 #define RSPDUO_NUM_LNA_STATES 10 // Number of LNA states in all bands (except where
 defined differently below)
 #define RSPDUO_NUM_LNA_STATES_AMPORT 5 // Number of LNA states for HiZ port
 #define RSPDUO_NUM_LNA_STATES_AM 7 // Number of LNA states in AM band
 #define RSPDUO_NUM_LNA_STATES_LBAND 9 // Number of LNA states in L band
 
-#### 2.8.2 Enumerated Data Types
-
+2.8.2 Enumerated Data Types
 RSPduo Operating Mode Enumerated Type:
 
 typedef enum
@@ -868,8 +805,7 @@ sdrplay_api_RspDuo_AMPORT_1 = 1,
 sdrplay_api_RspDuo_AMPORT_2 = 0,
 } sdrplay_api_RspDuo_AmPortSelectT;
 
-#### 2.8.3 Data Structures
-
+2.8.3 Data Structures
 RSPduo External Reference Control Parameters Structure:
 
 typedef struct
@@ -897,13 +833,10 @@ unsigned char rfDabNotchEnable; // default: 0
 sdrplay_api_RspDuo_ResetSlaveFlagsT resetSlaveFlags;
 } sdrplay_api_RspDuoTunerParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.9 sdrplay_api_rspDx.h
-
-#### 2.9.1 Constant Definitions
-
+2.9 sdrplay_api_rspDx.h
+2.9.1 Constant Definitions
 #define RSPDX_NUM_LNA_STATES 28 // Number of LNA states in all bands (except
 where defined differently below)
 #define RSPDX_NUM_LNA_STATES_AMPORT2_0_12 19 // Number of LNA states when using AM Port 2
@@ -917,8 +850,7 @@ between 50 and 60MHz
 #define RSPDX_NUM_LNA_STATES_LBAND 19 // Number of LNA states in L-band
 #define RSPDX_NUM_LNA_STATES_DX 2 2 // Number of LNA states in DX path
 
-#### 2.9.2 Enumerated Data Types
-
+2.9.2 Enumerated Data Types
 RSPdx Antenna Selection Enumerated Type:
 
 typedef enum
@@ -938,8 +870,7 @@ sdrplay_api_RspDx_HDRMODE_BW_1_200 = 2,
 sdrplay_api_RspDx_HDRMODE_BW_1_700 = 3,
 } sdrplay_api_RspDx_HdrModeBwT;
 
-#### 2.9.3 Data Structures
-
+2.9.3 Data Structures
 RSPdx Control Parameters Structure:
 
 typedef struct
@@ -958,13 +889,10 @@ typedef struct
 sdrplay_api_RspDx_HdrModeBwT hdrBw; // default: sdrplay_api_RspDx_HDRMODE_BW_1_
 } sdrplay_api_RspDxTunerParamsT;
 
+User Guide
 
-**User Guide**
-
-### 2.10 sdrplay_api_callback.h
-
-#### 2.10.1 Enumerated Data Types
-
+2.10 sdrplay_api_callback.h
+2.10.1 Enumerated Data Types
 Power Overload Event Enumerated Type:
 
 typedef enum
@@ -997,11 +925,9 @@ sdrplay_api_RspDuoModeChange = 3,
 sdrplay_api_DeviceFailure = 4,
 } sdrplay_api_EventT;
 
+User Guide
 
-**User Guide**
-
-#### 2.10.2 Data Structures
-
+2.10.2 Data Structures
 Event Callback Structure:
 
 typedef struct
@@ -1054,75 +980,69 @@ sdrplay_api_StreamCallback_t StreamBCbFn;
 sdrplay_api_EventCallback_t EventCbFn;
 } sdrplay_api_CallbackFnsT;
 
-#### 2.10.3 Callback Function Prototypes
-
+2.10.3 Callback Function Prototypes
 typedef void (*sdrplay_api_StreamCallback_t)(short *xi,
 short *xq,
 sdrplay_api_StreamCbParamsT *params,
 unsigned int numSamples,
 unsigned int reset,
-void *cbContext);
-typedef void (*sdrplay_api_EventCallback_t)(sdrplay_api_EventT eventId,
+void cbContext);
+typedef void (sdrplay_api_EventCallback_t)(sdrplay_api_EventT eventId,
 sdrplay_api_TunerSelectT tuner,
 sdrplay_api_EventParamsT *params,
 void *cbContext);
 
+User Guide
 
-**User Guide**
-
-## 3 Function Descriptions
-
-### 3.1 sdrplay_api_Open
-
+3 Function Descriptions
+3.1 sdrplay_api_Open
 sdrplay_api_ErrT sdrplay_api_Open(void)
 
-**Description:**
+Description:
 
 Opens the API and configures the API for use. This function must be called before any other API
 
 function.
 
-**Parameters:**
+Parameters:
 
 void (^) No parameters
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below:
 sdrplay_api_Success^ API successfully opened
 sdrplay_api_Fail^ API failed to open
 
-### 3.2 sdrplay_api_Close
-
+3.2 sdrplay_api_Close
 sdrplay_api_ErrT sdrplay_api_Close(void)
 
-**Description:**
+Description:
 
 Tidies up and closes the API. After calling this function it is no longer possible to access other API
 
 functions until sdrplay_api_Open() is successfully called again.
 
-**Parameters:**
+Parameters:
 
 void (^) No parameters
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below:
 sdrplay_api_Success^ API successfully closed
 
-### 3.3 sdrplay_api_ApiVersion
-
+3.3 sdrplay_api_ApiVersion
 sdrplay_api_ErrT sdrplay_api_ApiVersion(float *apiVer)
 
-**Description:**
+Description:
 
 This function checks that the version of the include file used to compile the application is consistent
 
 with the API version being used.
 
-**Parameters:**
+Parameters:
 
 apiVer (^) Pointer to a float which returns the version of the API
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below:
 sdrplay_api_Success Successful completion
@@ -1133,14 +1053,12 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
+User Guide
 
-**User Guide**
-
-### 3.4 sdrplay_api_LockDeviceApi
-
+3.4 sdrplay_api_LockDeviceApi
 sdrplay_api_ErrT sdrplay_api_LockDeviceApi(void)
 
-**Description:**
+Description:
 
 Attempts to lock the API for exclusive use of the current application. Once locked, no other applications
 
@@ -1151,10 +1069,10 @@ ensure only one application can select a given device. After completing device s
 sdrplay_api_SelectDevice(), sdrplay_api_UnlockDeviceApi() can be used to release the API. May also
 be used prior to calling sdrplay_api_ReleaseDevice() if it is necessary to reselect the same device.
 
-**Parameters:**
+Parameters:
 
 Void (^) No parameters
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below:
 sdrplay_api_Success^ Successful completion
@@ -1163,18 +1081,17 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
-### 3.5 sdrplay_api_UnlockDeviceApi
-
+3.5 sdrplay_api_UnlockDeviceApi
 sdrplay_api_ErrT sdrplay_api_UnlockDeviceApi(void)
 
-**Description:**
+Description:
 
 See description for sdrplay_api_LockDeviceApi().
 
-**Parameters:**
+Parameters:
 
 none (^) No parameters
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below: (^)
 sdrplay_api_Success^ Successful completion
@@ -1183,22 +1100,20 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
+User Guide
 
-**User Guide**
-
-### 3.6 sdrplay_api_GetDevices
-
+3.6 sdrplay_api_GetDevices
 sdrplay_api_ErrT sdrplay_api_GetDevices(sdrplay_api_DeviceT *devices,
 unsigned int *numDevs,
 unsigned int maxDevs)
 
-**Description:**
+Description:
 
 This function returns a list of all available devices (up to a maximum defined by maxDev parameter).
 
 Once the list has been retrieved, a device can be selected based on the required characteristics.
 
-**Parameters:**
+Parameters:
 
 devices (^) Pointer to an array of device enumeration structures used to return the list of
 available devices
@@ -1206,7 +1121,7 @@ numDevs (^) Pointer to a variable which on return will indicate the number of av
 devices
 maxDevs (^) Specifies the maximum number of devices that can be returned in the list (size
 of array of device enumeration structures)
-**Return:**
+Return:
 sdrplay_api_ErrT
 Error code as defined below:
 sdrplay_api_Success^ Successful completion
@@ -1216,11 +1131,10 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
-### 3.7 sdrplay_api_SelectDevice
-
+3.7 sdrplay_api_SelectDevice
 sdrplay_api_ErrT sdrplay_api_SelectDevice(sdrplay_api_DeviceT *device)
 
-**Description:**
+Description:
 
 Once a device is selected from the list of devices returned in sdrplay_api_GetDevices(), and the
 
@@ -1233,10 +1147,10 @@ this call, the sdrplay_api_DeviceT structure passed in contains a handle that ca
 
 subsequent calls to the API.
 
-**Parameters:**
+Parameters:
 
 device (^) Pointer to the sdrplay_api_DeviceT structure for the selected device
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success Successful completion
 sdrplay_api_Fail Command failed
@@ -1245,21 +1159,19 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
+User Guide
 
-**User Guide**
-
-### 3.8 sdrplay_api_ReleaseDevice
-
+3.8 sdrplay_api_ReleaseDevice
 sdrplay_api_ErrT sdrplay_api_ReleaseDevice(sdrplay_api_DeviceT *device)
 
-**Description:**
+Description:
 
 Releases a device and makes that device available for other applications.
 
-**Parameters:**
+Parameters:
 
 device (^) Pointer to the sdrplay_api_DeviceT structure for the device to be released
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below: (^)
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1268,27 +1180,25 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
-### 3.9 sdrplay_api_GetErrorString
-
+3.9 sdrplay_api_GetErrorString
 const char* sdrplay_api_GetErrorString(sdrplay_api_ErrT err)
 
-**Description:**
+Description:
 
 Upon receipt of an error code, a print friendly error string can be obtained using the function. The
 
 returned pointer is a pointer to a static array and does not need to be freed.
 
-**Parameters:**
+Parameters:
 
 err (^) Error code to be converted to a string.
-**Return:**
+Return:
 const char * (^) Pointer to a string containing the error definition
 
-### 3.10 sdrplay_api_GetLastError User Guide
-
+3.10 sdrplay_api_GetLastError User Guide
 sdrplay_api_ErrorInfoT* sdrplay_api_GetLastError(sdrplay_api_DeviceT *device)
 
-**Description:**
+Description:
 
 Upon receipt of an error code, extended information on the location and reason for the error can be
 
@@ -1296,85 +1206,79 @@ obtained using the function. The returned pointer is a pointer to a static array
 
 freed.
 
-**Parameters:**
+Parameters:
 
 device (^) Pointer to the sdrplay_api_DeviceT structure for the device currently used
-**Return:**
+Return:
 sdrplay_api_ErrorInfoT *
 Pointer to a structure containing the last error information
 
+User Guide
 
-**User Guide**
-
-### 3.11 sdrplay_api_GetLastErrorByType
-
+3.11 sdrplay_api_GetLastErrorByType
 sdrplay_api_ErrorInfoT* sdrplay_api_GetLastError(sdrplay_api_DeviceT *device, int type, unsigned
 long long *time)
 
-**Description:**
+Description:
 
 Upon receipt of an error code and message type, extended information on the error can be obtained using
 
 the function. The returned pointer is a pointer to a static array and does not need to be freed.
 
-**Parameters:**
+Parameters:
 
 device (^) Pointer to the sdrplay_api_DeviceT structure for the device currently used
 type (^) Message type (0=DLL message, 1=DLL device message, 2=Service message,
 3=Service device message)
 Time (^) Pointer to the time of the error
-**Return:**
+Return:
 sdrplay_api_ErrorInfoT *
 Pointer to a structure containing the last error information
 
-### 3.12 sdrplay_api_DisableHeartbeat
-
+3.12 sdrplay_api_DisableHeartbeat
 sdrplay_api_ErrT sdrplay_api_DisableHeartbeat(void)
 
-**Description:**
+Description:
 
 Debug only function. Allows code to be stepped through without API threads timing out. MUST be
 
 called before sdrplay_api_SelectDevice is called.
 
-**Parameters:**
+Parameters:
 
 void (^) No parameters
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail Failure to call sdrplay_api_LockDeviceApi
 
-### 3.13 sdrplay_api_DebugEnable......................................................................................................
-
+3.13 sdrplay_api_DebugEnable......................................................................................................
 sdrplay_api_ErrT sdrplay_api_DebugEnable(HANDLE dev, sdrplay_api_DbgLvl_t dbgLvl)
 
-**Description:**
+Description:
 
 Enable or disable debug output logging. This logging can help with debugging issues but will increase
 
 the processing load and in some extreme cases, may cause data dropout.
 
-**Parameters:**
+Parameters:
 
 dev (^) Handle of selected device from current device enumeration structure (can be
 NULL for reduced logging prior to selecting a device)
 dbgLvl (^) Specify the level of debug required using the relevant enum parameter
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below: (^)
 sdrplay_api_Success Successful completion
 sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
+User Guide
 
-**User Guide**
-
-### 3.14 sdrplay_api_GetDeviceParams
-
+3.14 sdrplay_api_GetDeviceParams
 sdrplay_api_ErrT sdrplay_api_GetDeviceParams(HANDLE dev,sdrplay_api_DeviceParamsT **deviceParams)
 
-**Description:**
+Description:
 
 Devices are configured via the parameters contained in the device parameter structure. After selecting
 
@@ -1384,11 +1288,11 @@ sdrplay_api_Init() is called. After sdrplay_api_Init() has been called, any chan
 
 parameters must be signalled to the API using sdrplay_api_Update() before they will be applied.
 
-**Parameters:**
+Parameters:
 
 Dev (^) Handle of selected device from current device enumeration structure
 deviceParams (^) Pointer to a pointer to the device parameters used to setup/control the device
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1397,13 +1301,12 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
-### 3.15 sdrplay_api_Init
-
+3.15 sdrplay_api_Init
 sdrplay_api_ErrT sdrplay_api_Init(HANDLE dev,
 sdrplay_api_CallbackFnsT *callbackFns,
 void *cbContext)
 
-**Description:**
+Description:
 
 This function will initialise the tuners according to the device parameter structure. After successfully
 
@@ -1451,17 +1354,16 @@ Conditions for HDR mode for the RSPdx/RSPdxR2 with the hardware 500 kHz low pass
 Conditions for HDR mode for the RSPdx/RSPdxR2 with the hardware 2 MHz low pass filter:
 (rfHz == 516000) || (rfHz == 875000) || (rfHz == 1125000) || (rfHz == 1900000) && hdrEnable
 
+User Guide
 
-**User Guide**
-
-**Parameters:**
+Parameters:
 
 dev (^) Handle of selected device from current device enumeration structure
 callbackFns (^) Pointer to a structure specifying the callback functions to use to send processed
 data and events
 cbContext (^) Pointer to a context passed to the API that will be returned as a parameter in
 the callback functions
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 (^) sdrplay_api_Success Successful completion
 (^) sdrplay_api_Fail Command failed
@@ -1474,11 +1376,10 @@ sdrplay_api_RfUpdateError (^) Failed to update Rf frequency
 sdrplay_api_StartPending (^) Master device not running
 sdrplay_api_ServiceNotResponding (^) Communication channel with service broken
 
-### 3.16 sdrplay_api_Uninit
-
+3.16 sdrplay_api_Uninit
 sdrplay_api_ErrT sdrplay_api_Uninit(HANDLE dev)
 
-**Description:**
+Description:
 
 Stops the stream and uninitialises the tuners. In RSPduo master/slave mode, the master application
 
@@ -1488,10 +1389,10 @@ will return sdrplay_api_StopPending without making any changes and the call must
 
 sdrplay_api_RspDuoModeChange->sdrplay_api_SlaveUninitialised event has been received.
 
-**Parameters:**
+Parameters:
 
 Dev (^) Handle of selected device from current device enumeration structure
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1501,17 +1402,15 @@ sdrplay_api_ServiceNotResponding
 Communication channel with service
 broken
 
+User Guide
 
-**User Guide**
-
-### 3.17 sdrplay_api_Update
-
+3.17 sdrplay_api_Update
 sdrplay_api_ErrT sdrplay_api_Update(HANDLE dev,
 sdrplay_api_TunerSelectT tuner,
 sdrplay_api_ReasonForUpdateT reasonForUpdate,
 sdrplay_api_ReasonForUpdateExtension1T reasonForUpdateExt1)
 
-**Description:**
+Description:
 
 This function is used to indicate that parameters have been changed and need to be applied. Used to
 
@@ -1529,54 +1428,53 @@ sdrplay_api_Update_Dev_Ppm : deviceParams->devParams->ppm
 sdrplay_api_Update_Dev_SyncUpdate : deviceParams->devParams->syncUpdate->*
 sdrplay_api_Update_Dev_ResetFlags : deviceParams->devParams->resetFlags->*
 sdrplay_api_Update_Rsp1a_BiasTControl :
-deviceParams->rxChannel*->rsp1aTunerParams->biasTEnable
+deviceParams->rxChannel->rsp1aTunerParams->biasTEnable
 sdrplay_api_Update_Rsp1a_RfNotchControl :
 deviceParams->devParams->rsp1aParams->rfNotchEnable
 sdrplay_api_Update_Rsp1a_RfDabNotchControl :
 deviceParams->devParams->rsp1aParams->rfDabNotchEnable
 sdrplay_api_Update_Rsp2_BiasTControl :
-deviceParams->rxChannel*->rsp2TunerParams->biasTEnable
+deviceParams->rxChannel->rsp2TunerParams->biasTEnable
 sdrplay_api_Update_Rsp2_AmPortSelect :
-deviceParams->rxChannel*->rsp2TunerParams->amPortSel
+deviceParams->rxChannel->rsp2TunerParams->amPortSel
 sdrplay_api_Update_Rsp2_AntennaControl :
-deviceParams->rxChannel*->rsp2TunerParams->antennaSel
+deviceParams->rxChannel->rsp2TunerParams->antennaSel
 sdrplay_api_Update_Rsp2_RfNotchControl :
-deviceParams->rxChannel*->rsp2TunerParams->rfNotchEnable
+deviceParams->rxChannel->rsp2TunerParams->rfNotchEnable
 sdrplay_api_Update_Rsp2_ExtRefControl :
 deviceParams->devParams->rsp2Params->extRefOutputEn
 sdrplay_api_Update_RspDuo_ExtRefControl :
 deviceParams->devParams->rspDuoParams->extRefOutputEn
 sdrplay_api_Update_Tuner_Gr :
-deviceParams->rxChannel*->tunerParams->gain->gRdB or
-deviceParams->rxChannel*->tunerParams->gain->LNAstate
+deviceParams->rxChannel->tunerParams->gain->gRdB or
+deviceParams->rxChannel->tunerParams->gain->LNAstate
 sdrplay_api_Update_Tuner_GrLimits :
-deviceParams->rxChannel*->tunerParams->gain->minGr
-sdrplay_api_Update_Tuner_Frf : deviceParams->rxChannel*->tunerParams->rfFreq->*
-sdrplay_api_Update_Tuner_BwType : deviceParams->rxChannel*->tunerParams->bwType
-sdrplay_api_Update_Tuner_IfType : deviceParams->rxChannel*->tunerParams->ifType
-sdrplay_api_Update_Tuner_DcOffset : deviceParams->rxChannel*->tunerParams->loMode
+deviceParams->rxChannel->tunerParams->gain->minGr
+sdrplay_api_Update_Tuner_Frf : deviceParams->rxChannel->tunerParams->rfFreq->
+sdrplay_api_Update_Tuner_BwType : deviceParams->rxChannel->tunerParams->bwType
+sdrplay_api_Update_Tuner_IfType : deviceParams->rxChannel->tunerParams->ifType
+sdrplay_api_Update_Tuner_DcOffset : deviceParams->rxChannel->tunerParams->loMode
 sdrplay_api_Update_Tuner_LoMode :
-deviceParams->rxChannel*->tunerParams->dcOffsetTuner->*
-sdrplay_api_Update_Ctrl_DCoffsetIQimbalance : deviceParams->rxChannel*->ctrlParams->dcOffset->*
+deviceParams->rxChannel->tunerParams->dcOffsetTuner->*
+sdrplay_api_Update_Ctrl_DCoffsetIQimbalance : deviceParams->rxChannel->ctrlParams->dcOffset->
 sdrplay_api_Update_Ctrl_Decimation :
-deviceParams->rxChannel*->ctrlParams->decimation->*
-sdrplay_api_Update_Ctrl_Agc : deviceParams->rxChannel*->ctrlParams->agc->*
-sdrplay_api_Update_Ctrl_AdsbMode : deviceParams->rxChannel*->ctrlParams->adsbMode
+deviceParams->rxChannel->ctrlParams->decimation->
+sdrplay_api_Update_Ctrl_Agc : deviceParams->rxChannel->ctrlParams->agc->
+sdrplay_api_Update_Ctrl_AdsbMode : deviceParams->rxChannel->ctrlParams->adsbMode
 sdrplay_api_Update_Ctrl_OverloadMsgAck : none (used whenever a power overload event occurs
 as an acknowledge signal)
 sdrplay_api_Update_RspDuo_BiasTControl :
-deviceParams->rxChannel*->rspDuoTunerParams->biasTEnable
+deviceParams->rxChannel->rspDuoTunerParams->biasTEnable
 sdrplay_api_Update_RspDuo_AmPortSelect :
-deviceParams->rxChannel*->rspDuoTunerParams->tuner1AmPortSel
+deviceParams->rxChannel->rspDuoTunerParams->tuner1AmPortSel
 sdrplay_api_Update_RspDuo_Tuner1AmNotchControl:
-deviceParams->rxChannel*->rspDuoTunerParams->tuner1AmNotchEnable
+deviceParams->rxChannel->rspDuoTunerParams->tuner1AmNotchEnable
 sdrplay_api_Update_RspDuo_RfNotchControl :
-deviceParams->rxChannel*->rspDuoTunerParams->rfNotchEnable
+deviceParams->rxChannel->rspDuoTunerParams->rfNotchEnable
 sdrplay_api_Update_RspDuo_RfDabNotchControl :
-deviceParams->rxChannel*->rspDuoTunerParams->rfDabNotchEnable
+deviceParams->rxChannel->rspDuoTunerParams->rfDabNotchEnable
 
-
-**User Guide**
+User Guide
 Valid sdrplay_api_ReasonForUpdateExtension1T parameters:
 
 sdrplay_api_Update_Ext1_None : No changes relating to ReasonForUpdateExtension1T
@@ -1590,7 +1488,7 @@ sdrplay_api_Update_RspDx_HdrBw : deviceParams->devParams->rspDxTunerParams-> hdr
 sdrplay_api_Update_RspDuo_ResetSlaveFlags :
 deviceParams->rxChannel*->rspDuoTunerParams-> resetSlaveFlags
 
-**Parameters:**
+Parameters:
 
 dev (^) Handle of selected device from current device enumeration structure
 tuner (^) Specifies which tuner(s) to apply the update to
@@ -1598,7 +1496,7 @@ reasonForUpdate (^) Specifies the reason for the call depending on which paramet
 changed in the sdrplay_api_ReasonForUpdateT structure
 reasonForUpdateExt1 (^) Specifies the reason for the call depending on which parameters have been
 changed in the sdrplay_api_ ReasonForUpdateExtension1T structure
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success Successful completion
 sdrplay_api_Fail Command failed
@@ -1611,16 +1509,14 @@ sdrplay_api_GainUpdateError^ Failed to update gain
 sdrplay_api_NotEnabled^ Feature not enabled
 sdrplay_api_ServiceNotResponding^ Communication with the service is broken
 
+User Guide
 
-**User Guide**
-
-### 3.18 sdrplay_api_SwapRspDuoActiveTuner
-
+3.18 sdrplay_api_SwapRspDuoActiveTuner
 sdrplay_api_ErrT sdrplay_api_SwapRspDuoActiveTuner(HANDLE dev,
 sdrplay_api_TunerSelectT *currentTuner,
 sdrplay_api_RspDuo_AmPortSelectT tuner1AmPortSel)
 
-**Description:**
+Description:
 
 After a call to sdrplay_api_Init() for an RSPduo in single tuner mode, this function can be called to
 
@@ -1629,14 +1525,14 @@ change between tuners while maintaining the exact same settings (except in the c
 from TunerB to TunerA when HiZ is selected by the tuner1AmPortSel parameter). After successful
 completion, the current device enumeration structure will be updated with the newly selected tuner.
 
-**Parameters:**
+Parameters:
 
 dev (^) Handle of selected device from current device enumeration structure
 currentTimer (^) Pointer to the selected tuner stored in the current device enumeration
 structure
 tuner1AmPortSel (^) Specifies whether to use the HiZ port when switching to TunerA when the AM
 band is selected
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1646,12 +1542,11 @@ sdrplay_api_HwError^ HW error occured during tuner initialisation
 sdrplay_api_RfUpdateError^ Failed to update Rf frequency
 sdrplay_api_ServiceNotResponding^ Communication with the service is broken
 
-### 3.19 sdrplay_api_SwapRspDuoDualTunerModeSampleRate
-
+3.19 sdrplay_api_SwapRspDuoDualTunerModeSampleRate
 sdrplay_api_ErrT sdrplay_api_SwapRspDuoDualTunerModeSampleRate(HANDLE dev,
 double *currentSampleRate)
 
-**Description:**
+Description:
 
 After a call to sdrplay_api_Init() for an RSPduo in master/slave mode, this function can be called to
 
@@ -1667,12 +1562,12 @@ repeated after a sdrplay_api_RspDuoModeChange->sdrplay_api_SlaveUninitialised ev
 
 received.
 
-**Parameters:**
+Parameters:
 
 dev (^) Handle of selected device from current device enumeration structure
 currentSampleRate (^) Pointer to the selected sample rate stored in the current device enumeration
 structure
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below: (^)
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1683,11 +1578,9 @@ sdrplay_api_RfUpdateError^ Failed to update Rf frequency
 sdrplay_api_StopPending^ Slave device running
 sdrplay_api_ServiceNotResponding^ Communication with the service is broken
 
+User Guide
 
-**User Guide**
-
-### 3.20 sdrplay_api_SwapRspDuoMode
-
+3.20 sdrplay_api_SwapRspDuoMode
 sdrplay_api_ErrT sdrplay_api_SwapRspDuoMode(sdrplay_api_DeviceT *currDevice,
 sdrplay_api_DeviceParamsT **deviceParams,
 sdrplay_api_RspDuoModeT rspDuoMode,
@@ -1696,7 +1589,7 @@ sdrplay_api_Bw_MHzT bwType,
 sdrplay_api_If_kHzT ifType,
 sdrplay_api_RspDuo_AmPortSelectT tuner1AmPortSel)
 
-**Description:**
+Description:
 
 After a call to sdrplay_api_Init() for an RSPduo, this function can be called to change the operating
 
@@ -1710,7 +1603,7 @@ sdrplay_api_StopPending without making any changes and the call must be repeated
 
 sdrplay_api_RspDuoModeChange->sdrplay_api_SlaveUninitialised event has been received.
 
-**Parameters:**
+Parameters:
 
 currDevice (^) Pointer to the sdrplay_api_DeviceT structure for the device currently used
 deviceParams (^) Pointer to a pointer to the device parameters used to setup/control the device
@@ -1720,7 +1613,7 @@ tuner (^) Target tuner
 bwType (^) Target hardware IF bandwidth
 ifType (^) Target IF mode frequency
 tuner1AmPortSel (^) If using tuner 1, this parameter allows the selection of the AM port
-**Return:**
+Return:
 sdrplay_api_ErrT (^) Error code as defined below:
 sdrplay_api_Success^ Successful completion
 sdrplay_api_Fail^ Command failed
@@ -1731,11 +1624,9 @@ sdrplay_api_RfUpdateError^ Failed to update Rf frequency
 sdrplay_api_StopPending^ Slave device running
 sdrplay_api_ServiceNotResponding^ Communication with the service is broken
 
+User Guide
 
-**User Guide**
-
-### 3.21 Streaming Data Callback
-
+3.21 Streaming Data Callback
 typedef void (*sdrplay_api_StreamCallback_t)(short *xi,
 short *xq,
 sdrplay_api_StreamCbParamsT *params,
@@ -1743,11 +1634,11 @@ unsigned int numSamples,
 unsigned int reset,
 void *cbContext)
 
-**Description:**
+Description:
 
 This callback is triggered when there are samples to be processed.
 
-**Parameters:**
+Parameters:
 
 Xi (^) Pointer to the real data in the buffer
 Xq (^) Pointer to the imaginary data in the buffer
@@ -1756,23 +1647,22 @@ numSamples (^) The number of samples in the current buffer
 Reset (^) Indicates if a re-initialisation has occurred within the API and that local
 buffering should be reset
 cbContext (^) Pointer to context passed into sdrplay_api_Init()
-**Return:**
+Return:
 None (^)
 
-### 3.22 Event Callback
-
+3.22 Event Callback
 typedef void (*sdrplay_api_EventCallback_t)(sdrplay_api_EventT eventId,
 sdrplay_api_TunerSelectT tuner,
 sdrplay_api_EventParamsT *params,
 void *cbContext)
 
-**Description:**
+Description:
 
 This callback is triggered whenever an event occurs. The list of events is specified by the
 
 sdrplay_api_EventT enumerated type.
 
-**Parameters:**
+Parameters:
 
 eventId (^) Indicates the type of event that has occurred
 Tuner (^) Indicates which tuner(s) the event relates to
@@ -1780,14 +1670,12 @@ params (^) Pointer to the event callback union (the structure used depends on th
 eventId)
 cbContext (^) Pointer to context passed into sdrplay_api_Init()
 (^)
-**Return:**
+Return:
 None (^)
 
+User Guide
 
-**User Guide**
-
-## 4 API Usage
-
+4 API Usage
 // sdrplay_api_sample_app.c : Simple console application showing the use of the API
 
 #include <Windows.h>
@@ -1861,8 +1749,7 @@ printf("sdrplay_api_EventCb: %s, tuner=%s modeChangeType=%s\n",
 (params->rspDuoModeParams.modeChangeType == sdrplay_api_SlaveDllDisappeared)?
 "sdrplay_api_SlaveDllDisappeared": "unknown type");
 
-
-**User Guide**
+User Guide
 
 if (params->rspDuoModeParams.modeChangeType == sdrplay_api_MasterInitialised)
 masterInitialised = 1;
@@ -1938,8 +1825,7 @@ printf("sdrplay_api_Open failed %s\n", sdrplay_api_GetErrorString(err));
 }
 else
 
-
-**User Guide**
+User Guide
 {
 // Enable debug logging output
 if ((err = sdrplay_api_DebugEnable(NULL, 1)) != sdrplay_api_Success)
@@ -2015,8 +1901,7 @@ chosenDevice = &devs[chosenIdx];
 if (chosenDevice->hwVer == SDRPLAY_RSPduo_ID)
 {
 
-
-**User Guide**
+User Guide
 // If master device is available, select device as master
 if (chosenDevice->rspDuoMode & sdrplay_api_RspDuoMode_Master)
 {
@@ -2092,8 +1977,7 @@ else
 
 // Configure tuner parameters (depends on selected Tuner which parameters to use)
 
-
-**User Guide**
+User Guide
 chParams = (chosenDevice->tuner == sdrplay_api_Tuner_B)? deviceParams->rxChannelB:
 deviceParams->rxChannelA;
 if (chParams != NULL)
@@ -2152,7 +2036,8 @@ else
 sdrplay_api_ErrorInfoT *errInfo = sdrplay_api_GetLastError(NULL);
 if (errInfo != NULL)
 printf("Error in %s: %s(): line %d: %s\n", errInfo->file, errInfo-
->function, errInfo->line, errInfo->message);
+
+function, errInfo->line, errInfo->message);
 goto CloseApi;
 }
 }
@@ -2169,8 +2054,7 @@ else if (c == 'u')
 {
 chParams->tunerParams.gain.gRdB += 1;
 
-
-**User Guide**
+User Guide
 // Limit it to a maximum of 59dB
 if (chParams->tunerParams.gain.gRdB > 59)
 chParams->tunerParams.gain.gRdB = 20;
@@ -2245,32 +2129,23 @@ sdrplay_api_Close();
 return 0;
 }
 
+User Guide
 
-**User Guide**
-
-## 5 Gain Reduction Tables
-
+5 Gain Reduction Tables
 LNA GR (dB) by Frequency Range and LNAstate for RSP 1 :
 
 LNA GR (dB) by Frequency Range and LNAstate for RSP1A:
 
-```
 Frequency (MHz)
-```
-```
 LNAstate
 0 1 2 3 4 5 6 7 8 9
 0 - 60 0 6 12 18 37 42 612
 60 - 420 0 6 12 18 20 26 32 38 57 62
 420 - 1000 0 7 13 19 20 27 33 39 45 642
 1000 - 2000 0 6 12 20 26 32 38 43 622
-```
 LNA GR (dB) by Frequency Range and LNAstate for RSP1B:
 
-```
 Frequency (MHz)
-```
-```
 LNAstate
 0 1 2 3 4 5 6 7 8 9
 0 - 50 0 6 12 18 37 42 612
@@ -2278,26 +2153,18 @@ LNAstate
 60 - 420 0 6 12 18 20 26 32 38 57 62
 420 - 1000 0 7 13 19 20 27 33 39 45 642
 1000 - 2000 0 6 12 20 26 32 38 43 622
-```
 LNA GR (dB) by Frequency Range and LNAstate for RSP2:
 
-```
 Frequency (MHz)
-```
-```
 LNAstate
 0 1 2 3 4 5 6 7 8
 0 - 42 0 (Port A or B) 0 10 15 21 24 34 39 45 642
 420 - 1000 0 7 10 17 22 412
 1000 - 2000 0 5 21 153 153 342
 0 - 60 (HiZ Port) 0 6 12 18 372
-```
 LNA GR (dB) by Frequency Range and LNAstate for RSPduo:
 
-```
 Frequency (MHz)
-```
-```
 LNAstate
 0 1 2 3 4 5 6 7 8 9
 0 - 60 (50 Ω Ports) 0 6 12 18 37 42 612
@@ -2305,33 +2172,22 @@ LNAstate
 420 - 1000 0 7 13 19 20 27 33 39 45 642
 1000 - 2000 0 6 12 20 26 32 38 43 622
 0 - 60 (HiZ Port) 0 6 12 18 372
-```
-```
 Frequency (MHz)
-```
-```
 LNAstate
 0 1 2 3
 0 - 420 0 24 191 432
 420 - 1000 0 7 191 262
 1000 - 2000 0 5 191 242
-```
-```
 Notes:
-```
 (^1) Mixer GR only
 (^2) Includes LNA GR plus mixer GR
 (^3) In LNAstate 3, external LNA GR only, in
 LNAstate 4, external plus internal LNA GR
 
-
-**User Guide**
+User Guide
 LNA GR (dB) by Frequency Range and LNAstate for RSPdx and RSPdxR2:
 
-```
 Freq (MHz)
-```
-```
 LNAstate
 0 1 2 3 4 5 6 7 8 9 10 11 12 13
 0 - 2 (HDR mode) 0 3 6 9 12 15 18 21 24 25 27 30 33 36
@@ -2342,11 +2198,7 @@ LNAstate
 250 - 420 0 3 6 9 12 15 18 24 27 30 33 36 39 42
 420 - 1000 0 7 10 13 16 19 22 25 31 34 37 40 43 46
 1000 - 2000 0 5 8 11 14 17 20 32 35 38 41 44 47 50
-```
-```
 Freq (MHz)
-```
-```
 LNAstate
 14 15 16 17 18 19 20 21 22 23 24 25 26 27
 0 - 2 (HDR mode) 39 42 45 48 51 54 57 60
@@ -2357,12 +2209,9 @@ LNAstate
 250 - 420 45 48 51 54 57 60 63 66 69 72 75 78 81 84
 420 - 1000 49 52 55 58 61 64 67
 1000 - 2000 53 56 59 62 65
-```
+User Guide
 
-**User Guide**
-
-## 6 API File Location
-
+6 API File Location
 The API is delivered into 2 halves. The “service” half is an executable and is set to automatically start
 
 up when the host device boots. The “dll” half is a library (.dll on Windows and .so on non-Windows)
@@ -2405,16 +2254,16 @@ GitHub: https://github.com/SDRplay/ExtIO_SDRplay
 For the specific code, please check that repository. Here is a pseudo code version for reference...
 
 // Find entries in registry
-RegOpenKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\SDRplay\\Service\\API"), &APIkey);
+RegOpenKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\SDRplay\Service\API"), &APIkey);
 
 RegQueryValueEx(APIkey, "Install_Dir", NULL, NULL, (LPBYTE)&APIkeyValue, &APIkeyValue_length);
 
 // if 32bit dll is required
 
-sprintf(apiPath, %s\\x86\\sdrplay_api.dll”, APIkeyValue);
+sprintf(apiPath, %s\x86\sdrplay_api.dll”, APIkeyValue);
 
 // if 64bit dll is required
-sprintf(apiPath, %s\\x64\\sdrplay_api.dll”, APIkeyValue);
+sprintf(apiPath, %s\x64\sdrplay_api.dll”, APIkeyValue);
 
 // Load the library into memory
 
@@ -2437,47 +2286,29 @@ err = sdrplay_api_Open_fn();
 // after API has been closed, free the library from memory
 FreeLibrary(ApiDll);
 
+User Guide
 
-**User Guide**
-
-## 7 Legal Information
-
-### Legal Information
-
-```
+7 Legal Information
+Legal Information
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following
 conditions are met:
-```
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer
 in the documentation and/or other materials provided with the distribution.
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products
+Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products
 derived from this software without specific prior written permission.
-
-##### THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
-
-##### IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-
-##### FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-
-##### CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-
-##### CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-
-##### SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-
-##### THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-
-##### OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
-
-##### OF SUCH DAMAGE.
-
-```
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
 SDRPlay modules use a Mirics chipset and software. The information supplied hereunder is provided to you by SDRPlay
 under license from Mirics. Mirics hereby grants you a perpetual, worldwide, royalty free license to use the information herein
 for the purpose of designing software that utilizes SDRPlay modules, under the following conditions:
-```
-```
 There are no express or implied copyright licenses granted hereunder to design or fabricate any integrated circuits or
 integrated circuits based on the information in this document. Mirics reserves the right to make changes without further notice
 to any of its products. Mirics makes no warranty, representation or guarantee regarding the suitability of its products for any
@@ -2494,11 +2325,6 @@ claims, costs, damages, and expenses, and reasonable attorney fees arising out o
 injury or death associated with such unintended or unauthorized use, even if such claim alleges that either SDRPlay or Mirics
 were negligent regarding the design or manufacture of the part. Mirics FlexiRF , Mirics FlexiTV and Mirics are
 trademarks of Mirics.
-```
-```
 SDRPlay is the trading name of SDRPlay Limited a company registered in England # 09035244.
 Mirics is the trading name of Mirics Limited a company registered in England # 05046393
-```
 For more information, contact: https://www.sdrplay.com/support
-
-
