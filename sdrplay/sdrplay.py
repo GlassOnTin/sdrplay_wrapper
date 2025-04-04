@@ -453,6 +453,24 @@ class Device(object):
     def getRspDxR2Params(self):
         return _sdrplay.Device_getRspDxR2Params(self)
 
+    def registerStreamCallback(self, handler):
+        return _sdrplay.Device_registerStreamCallback(self, handler)
+
+    def registerGainCallback(self, handler):
+        return _sdrplay.Device_registerGainCallback(self, handler)
+
+    def registerPowerOverloadCallback(self, handler):
+        return _sdrplay.Device_registerPowerOverloadCallback(self, handler)
+
+    def startStreaming(self):
+        return _sdrplay.Device_startStreaming(self)
+
+    def stopStreaming(self):
+        return _sdrplay.Device_stopStreaming(self)
+
+    def isStreaming(self):
+        return _sdrplay.Device_isStreaming(self)
+
 # Register Device in _sdrplay:
 _sdrplay.Device_swigregister(Device)
 
