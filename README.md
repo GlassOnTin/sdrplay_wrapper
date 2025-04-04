@@ -20,12 +20,16 @@ make
 
 ## Recent Updates
 
+- Added streaming API support with callback registration
+- Fixed device registry and implemented clearFactories method
 - Fixed Python bindings for RSPdxR2 device support
 - Added device detection and basic parameter control
 - Updated SWIG interface for better Python integration
 - Added debug logging to help diagnose device connection issues
 
 ## Usage
+
+### Basic Usage
 
 ```python
 import sdrplay
@@ -54,6 +58,60 @@ if len(devices) > 0:
         rsp1a_params = device.getRsp1aParams()
         # Configure RSP1A-specific features
         
+    # When done
+    device.releaseDevice()
+```
+
+### Streaming API
+
+```python
+import sdrplay
+import time
+
+# Define your callback handlers
+class StreamHandler(sdrplay.StreamCallbackHandler):
+    def handleStreamData(self, xi, xq, numSamples):
+        # Process IQ samples here
+        print(f"Received {numSamples} samples")
+
+class GainHandler(sdrplay.GainCallbackHandler):
+    def handleGainChange(self, gRdB, lnaGRdB, currGain):
+        print(f"Gain change: {gRdB} dB, LNA: {lnaGRdB} dB, Current: {currGain}")
+
+class PowerHandler(sdrplay.PowerOverloadCallbackHandler):
+    def handlePowerOverload(self, isOverloaded):
+        print(f"Power overload detected: {isOverloaded}")
+
+# Create device
+device = sdrplay.Device()
+devices = device.getAvailableDevices()
+if len(devices) > 0:
+    device.selectDevice(devices[0])
+    
+    # Set frequency and sample rate
+    device.setFrequency(100e6)
+    device.setSampleRate(2e6)
+    
+    # Register callbacks
+    stream_cb = StreamHandler()
+    gain_cb = GainHandler()
+    power_cb = PowerHandler()
+    
+    device.registerStreamCallback(stream_cb)
+    device.registerGainCallback(gain_cb)
+    device.registerPowerOverloadCallback(power_cb)
+    
+    # Start streaming
+    if device.startStreaming():
+        print("Streaming started")
+        
+        # Process data for 5 seconds
+        time.sleep(5)
+        
+        # Stop streaming
+        device.stopStreaming()
+        print("Streaming stopped")
+    
     # When done
     device.releaseDevice()
 ```
