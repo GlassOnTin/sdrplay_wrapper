@@ -23,6 +23,36 @@
 // Enable exceptions
 %catches(std::runtime_error);
 
+// Include numpy support for array handling
+%include "numpy.i"
+
+%init %{
+    import_array();
+%}
+
+// Define typemaps for short* arrays in handleStreamData
+%typemap(directorin) (short* xi, short* xq, unsigned int numSamples) {
+    npy_intp dims[1] = { static_cast<npy_intp>($3) };
+    
+    // Create numpy arrays from the C arrays
+    PyObject* xi_array = PyArray_SimpleNewFromData(1, dims, NPY_SHORT, $1);
+    PyObject* xq_array = PyArray_SimpleNewFromData(1, dims, NPY_SHORT, $2);
+    
+    // Make copies to ensure Python doesn't use the memory after it's freed
+    PyObject* xi_copy = PyArray_NewCopy((PyArrayObject*)xi_array, NPY_ANYORDER);
+    PyObject* xq_copy = PyArray_NewCopy((PyArrayObject*)xq_array, NPY_ANYORDER);
+    
+    // Set up the Python arguments tuple
+    $input = PyTuple_New(3);
+    PyTuple_SetItem($input, 0, xi_copy);
+    PyTuple_SetItem($input, 1, xq_copy);
+    PyTuple_SetItem($input, 2, PyLong_FromLong($3));
+    
+    // Decrease the reference count for the original temporary arrays
+    Py_DECREF(xi_array);
+    Py_DECREF(xq_array);
+}
+
 // Define callback interfaces for Python
 %feature("director") sdrplay::StreamCallbackHandler;
 %feature("director") sdrplay::GainCallbackHandler;

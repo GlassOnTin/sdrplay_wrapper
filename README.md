@@ -153,7 +153,7 @@ The repository includes a more complete example script `example_streaming.py` th
 You can run it with:
 
 ```bash
-python3 example_streaming.py --freq 100.0 --samplerate 2.0 --gain 40 --time 10
+python3 example_streaming.py --frequency 100.0e6 --sample-rate 2.0e6 --gain 40 --time 10
 ```
 
 ## Testing

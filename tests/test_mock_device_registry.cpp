@@ -29,6 +29,11 @@ struct DeviceInfo {
 constexpr unsigned char RSP1A_HWVER = 255;
 constexpr unsigned char RSPDXR2_HWVER = 7;
 
+// Forward declarations for mock callback handlers
+class StreamCallbackHandler;
+class GainCallbackHandler;
+class PowerOverloadCallbackHandler;
+
 // Mock DeviceControl
 class DeviceControl {
 public:
@@ -59,6 +64,17 @@ public:
     virtual void setLNAState(int) = 0;
     virtual void setHDRMode(bool) = 0;
     virtual void setBiasTEnabled(bool) = 0;
+    
+    // Streaming control methods
+    virtual bool initializeStreaming() { return true; }
+    virtual bool startStreaming() { return true; }
+    virtual bool stopStreaming() { return true; }
+    virtual bool isStreaming() const { return false; }
+    
+    // Callback registration
+    virtual void setStreamCallback(StreamCallbackHandler*) {}
+    virtual void setGainCallback(GainCallbackHandler*) {}
+    virtual void setPowerOverloadCallback(PowerOverloadCallbackHandler*) {}
 };
 
 // Mock device factory 

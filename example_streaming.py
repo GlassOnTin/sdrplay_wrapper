@@ -40,16 +40,16 @@ class StreamCallback(StreamCallbackHandler):
         self.samples_received = 0
         
     def handleStreamData(self, xi, xq, numSamples):
-        # Convert raw samples to numpy arrays for easier processing
-        i_data = np.frombuffer(xi, dtype=np.int16, count=numSamples)
-        q_data = np.frombuffer(xq, dtype=np.int16, count=numSamples)
-        
-        # Calculate power
-        power = np.mean(i_data**2 + q_data**2)
+        # xi and xq are now NumPy arrays thanks to the SWIG typemap
+        # Calculate power directly from the arrays
+        power = np.mean(xi.astype(np.float32)**2 + xq.astype(np.float32)**2)
         
         self.samples_received += numSamples
         if self.samples_received % 1000000 == 0:
             logger.info(f"Received {self.samples_received} samples, current power: {power:.2f}")
+            
+        # Optional: Further processing can be done here
+        # For example, FFT analysis, demodulation, etc.
 
 # Callback handler for gain changes
 class GainCallback(GainCallbackHandler):

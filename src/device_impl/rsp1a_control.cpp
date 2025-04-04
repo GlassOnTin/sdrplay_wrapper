@@ -179,10 +179,9 @@ void RSP1AControl::eventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSe
                 break;
             }
             case sdrplay_api_PowerOverloadChange: {
-                if (instance->impl->powerCallback) {
-                    // For simplicity in this proof-of-concept implementation
-                    // we'll just hard-code a value (would come from params in real API)
-                    bool isOverloaded = true;
+                if (instance->impl->powerCallback && params) {
+                    // Extract the actual power overload status from the event parameters
+                    bool isOverloaded = params->powerOverloadParams.powerOverloadChangeType == sdrplay_api_Overload_Detected;
                     instance->impl->powerCallback->handlePowerOverload(isOverloaded);
                 }
                 break;

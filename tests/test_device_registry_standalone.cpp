@@ -10,6 +10,10 @@ class MockDeviceControl : public sdrplay::DeviceControl {
 public:
     double freq = 100.0e6;
     double rate = 2.0e6;
+    bool streaming = false;
+    sdrplay::StreamCallbackHandler* streamCallback = nullptr;
+    sdrplay::GainCallbackHandler* gainCallback = nullptr;
+    sdrplay::PowerOverloadCallbackHandler* powerCallback = nullptr;
 
     void setFrequency(double f) override { freq = f; }
     double getFrequency() const override { return freq; }
@@ -30,6 +34,17 @@ public:
     void setLNAState(int) override {}
     void setHDRMode(bool) override {}
     void setBiasTEnabled(bool) override {}
+
+    // Streaming API mock implementations
+    bool initializeStreaming() override { return true; }
+    bool startStreaming() override { streaming = true; return true; }
+    bool stopStreaming() override { streaming = false; return true; }
+    bool isStreaming() const override { return streaming; }
+    
+    // Callback registration
+    void setStreamCallback(sdrplay::StreamCallbackHandler* handler) override { streamCallback = handler; }
+    void setGainCallback(sdrplay::GainCallbackHandler* handler) override { gainCallback = handler; }
+    void setPowerOverloadCallback(sdrplay::PowerOverloadCallbackHandler* handler) override { powerCallback = handler; }
 };
 
 void testDeviceCreation() {

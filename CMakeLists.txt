@@ -70,10 +70,17 @@ if(BUILD_PYTHON_BINDINGS)
         cmake_policy(SET CMP0086 NEW)
     endif()
 
-    # Find Python and SWIG
-    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+    # Find Python, NumPy, and SWIG
+    find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
     find_package(SWIG REQUIRED)
     include(${SWIG_USE_FILE})
+    
+    # Get NumPy include directory
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
+        OUTPUT_VARIABLE NUMPY_INCLUDE_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
     # Configure SWIG
     set(CMAKE_SWIG_FLAGS "")
@@ -83,7 +90,9 @@ if(BUILD_PYTHON_BINDINGS)
     
     # Set up SWIG interface module
     include_directories(${Python3_INCLUDE_DIRS})
+    include_directories(${NUMPY_INCLUDE_DIR})
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/swig)
     
     set_source_files_properties(swig/sdrplay.i PROPERTIES
         CPLUSPLUS ON

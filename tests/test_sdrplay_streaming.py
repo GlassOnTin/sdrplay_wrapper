@@ -18,7 +18,19 @@ class SDRplayStreamingTest(SDRplayBaseTest):
             self.test_instance = test_instance
 
         def handleStreamData(self, xi, xq, numSamples):
+            import numpy as np
             self.test_instance.logger.debug(f"Stream data received: {numSamples} samples")
+            
+            # Verify that xi and xq are numpy arrays
+            self.test_instance.assertTrue(isinstance(xi, np.ndarray), "xi is not a numpy array")
+            self.test_instance.assertTrue(isinstance(xq, np.ndarray), "xq is not a numpy array")
+            self.test_instance.assertEqual(xi.shape[0], numSamples, "xi array size mismatch")
+            self.test_instance.assertEqual(xq.shape[0], numSamples, "xq array size mismatch")
+            
+            # Calculate the power to verify data is valid
+            power = np.mean(xi.astype(np.float32)**2 + xq.astype(np.float32)**2)
+            self.test_instance.logger.debug(f"Average power: {power:.2f}")
+            
             self.test_instance.stream_data = (xi, xq, numSamples)
 
     class GainHandler(sdrplay.GainCallbackHandler):
@@ -76,8 +88,8 @@ class SDRplayStreamingTest(SDRplayBaseTest):
         self.assertTrue(result, "Failed to stop streaming")
         self.assertFalse(self.device.isStreaming())
         
-        # Check that we received some callbacks (would be used in actual implementation)
-        # self.assertIsNotNone(self.stream_data, "No stream data received")
+        # Check that we received some callbacks
+        self.assertIsNotNone(self.stream_data, "No stream data received")
         
         self.logger.info("Streaming control API works correctly")
 
