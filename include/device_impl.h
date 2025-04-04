@@ -8,16 +8,27 @@
 
 namespace sdrplay {
 
+class StreamCallbackHandler;
+class GainCallbackHandler;
+class PowerOverloadCallbackHandler;
+
 struct Device::Impl {
     std::unique_ptr<DeviceControl> deviceControl;
     DeviceInfo currentDevice;
     bool isOpen{false};
+    bool streaming{false};
     
     // Device-specific parameter objects
     std::unique_ptr<Rsp1aParams> rsp1aParams;
     std::unique_ptr<RspDxR2Params> rspdxr2Params;
 
-    Impl() : deviceControl(nullptr), isOpen(false) {}
+    // Callback handlers
+    StreamCallbackHandler* streamCallback{nullptr};
+    GainCallbackHandler* gainCallback{nullptr};
+    PowerOverloadCallbackHandler* powerCallback{nullptr};
+
+    Impl() : deviceControl(nullptr), isOpen(false), streaming(false),
+             streamCallback(nullptr), gainCallback(nullptr), powerCallback(nullptr) {}
 };
 
 } // namespace sdrplay

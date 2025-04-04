@@ -7,6 +7,9 @@
 namespace sdrplay {
 
 // Forward declarations
+class StreamCallbackHandler;
+class GainCallbackHandler;
+class PowerOverloadCallbackHandler;
 class RSP1AParameters;
 class RSPdxR2Parameters;
 using Rsp1aParams = RSP1AParameters; 
@@ -34,6 +37,14 @@ public:
     // Device parameters accessors
     Rsp1aParams* getRsp1aParams();
     RspDxR2Params* getRspDxR2Params();
+
+    // Streaming support
+    bool registerStreamCallback(StreamCallbackHandler* handler);
+    bool registerGainCallback(GainCallbackHandler* handler);
+    bool registerPowerOverloadCallback(PowerOverloadCallbackHandler* handler);
+    bool startStreaming();
+    bool stopStreaming();
+    bool isStreaming() const;
 
 private:
     struct Impl;

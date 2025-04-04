@@ -24,6 +24,10 @@ std::unique_ptr<DeviceControl> DeviceRegistry::createDeviceControl(unsigned char
     return it->second();
 }
 
+void DeviceRegistry::clearFactories() {
+    getFactoryMap().clear();
+}
+
 // Register real devices
 namespace {
     struct DeviceRegistrar {
