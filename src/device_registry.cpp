@@ -1,8 +1,9 @@
 #include "device_registry.h"
 #include "device_impl/rsp1a_control.h"
 #include "device_impl/rspdxr2_control.h"
+#include "sdrplay_exception.h"
 #include <map>
-#include <stdexcept>
+#include <string>
 
 namespace sdrplay {
 
@@ -19,7 +20,7 @@ std::unique_ptr<DeviceControl> DeviceRegistry::createDeviceControl(unsigned char
     auto& factories = getFactoryMap();
     auto it = factories.find(hwVer);
     if (it == factories.end()) {
-        throw std::runtime_error("Unsupported device hardware version");
+        throw UnsupportedDeviceException(std::to_string(static_cast<int>(hwVer)));
     }
     return it->second();
 }

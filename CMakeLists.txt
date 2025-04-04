@@ -29,6 +29,7 @@ set(WRAPPER_SOURCES
     src/control_params.cpp
     src/device_impl/rsp1a_control.cpp
     src/device_impl/rspdxr2_control.cpp
+    src/sdrplay_exception.cpp
 )
 
 # Create library target
@@ -56,6 +57,10 @@ add_test(NAME test_sdrplay_api COMMAND test_sdrplay_api)
 add_executable(test_device_registry tests/test_device_registry.cpp)
 target_link_libraries(test_device_registry PRIVATE sdrplay_wrapper)
 add_test(NAME test_device_registry COMMAND test_device_registry)
+
+add_executable(test_error_handling tests/test_error_handling.cpp)
+target_link_libraries(test_error_handling PRIVATE sdrplay_wrapper)
+add_test(NAME test_error_handling COMMAND test_error_handling)
 
 # Python bindings (SWIG)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)

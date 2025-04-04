@@ -1,6 +1,7 @@
 #define SDRPLAY_TESTING
 #include "device_registry.h"
 #include "device_types.h"
+#include "sdrplay_exception.h"
 #include <cassert>
 #include <iostream>
 
@@ -77,8 +78,9 @@ void testDeviceCreation() {
     try {
         DeviceRegistry::createDeviceControl(123);
         assert(false);
-    } catch (const std::exception& e) {
-        std::cout << "Invalid device error caught correctly" << std::endl;
+    } catch (const UnsupportedDeviceException& e) {
+        std::cout << "Invalid device error caught correctly: " << e.getFullMessage() << std::endl;
+        assert(e.getErrorCode() == ErrorCode::UNSUPPORTED_DEVICE);
     }
 }
 

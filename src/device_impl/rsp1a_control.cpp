@@ -1,5 +1,5 @@
 #include "device_impl/rsp1a_control.h"
-#include <stdexcept>
+#include "sdrplay_exception.h"
 #include <iostream>
 #include <mutex>
 #include <cassert>
@@ -208,16 +208,16 @@ void RSP1AControl::setPowerOverloadCallback(PowerOverloadCallbackHandler* handle
 bool RSP1AControl::initializeStreaming() {
     auto* device = getCurrentDevice();
     if (!device) {
-        std::cerr << "No device selected for streaming" << std::endl;
-        return false;
+        throw DeviceException(ErrorCode::DEVICE_NOT_SELECTED, 
+                             "No device selected for streaming initialization");
     }
     
     // Configure streaming parameters
     impl->deviceParams = getDeviceParams();
     impl->updateChannel();
     if (!impl->deviceParams || !impl->channelParams) {
-        std::cerr << "Failed to get device parameters" << std::endl;
-        return false;
+        throw DeviceException(ErrorCode::DEVICE_NOT_INITIALIZED, 
+                             "Failed to get device parameters for streaming");
     }
     
     // Set up default streaming parameters if not already configured
@@ -245,17 +245,23 @@ bool RSP1AControl::initializeStreaming() {
 }
 
 bool RSP1AControl::startStreaming() {
+    if (impl->isStreaming) {
+        throw StreamingException(ErrorCode::STREAMING_ALREADY_ACTIVE, 
+                                "Streaming is already active");
+    }
+
     auto* device = getCurrentDevice();
     if (!device) {
-        std::cerr << "No device selected for streaming" << std::endl;
-        return false;
+        throw DeviceException(ErrorCode::DEVICE_NOT_SELECTED, 
+                             "No device selected for streaming");
     }
     
     // Call the SDRPlay API to start streaming
     sdrplay_api_ErrT err = sdrplay_api_Init(device->dev, &impl->callbackFns, device->dev);
     if (err != sdrplay_api_Success) {
-        std::cerr << "Failed to initialize streaming: " << sdrplay_api_GetErrorString(err) << std::endl;
-        return false;
+        std::string apiError = sdrplay_api_GetErrorString(err);
+        throw StreamingException(ErrorCode::STREAMING_ERROR, 
+                                "Failed to initialize streaming: " + apiError);
     }
     
     impl->isStreaming = true;
@@ -265,18 +271,21 @@ bool RSP1AControl::startStreaming() {
 bool RSP1AControl::stopStreaming() {
     auto* device = getCurrentDevice();
     if (!device) {
-        return false;
+        throw DeviceException(ErrorCode::DEVICE_NOT_SELECTED, 
+                             "No device selected for stopping streaming");
     }
     
     if (!impl->isStreaming) {
-        return true; // Already stopped
+        // Not an error, just a no-op
+        return true;
     }
     
     // Call the SDRPlay API to stop streaming
     sdrplay_api_ErrT err = sdrplay_api_Uninit(device->dev);
     if (err != sdrplay_api_Success) {
-        std::cerr << "Failed to uninitialize streaming: " << sdrplay_api_GetErrorString(err) << std::endl;
-        return false;
+        std::string apiError = sdrplay_api_GetErrorString(err);
+        throw StreamingException(ErrorCode::STREAMING_ERROR, 
+                                "Failed to uninitialize streaming: " + apiError);
     }
     
     impl->isStreaming = false;

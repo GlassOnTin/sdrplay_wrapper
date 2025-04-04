@@ -1,5 +1,5 @@
 #include "device_control.h"
-#include <stdexcept>
+#include "sdrplay_exception.h"
 #include <cstring>
 #include <iostream>
 
@@ -91,6 +91,11 @@ std::vector<DeviceInfo> DeviceControl::getAvailableDevices() {
 }
 
 bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
+    if (!deviceInfo.valid) {
+        throw DeviceException(ErrorCode::DEVICE_NOT_FOUND, 
+                             "Device is not valid: " + deviceInfo.serialNumber);
+    }
+
     sdrplay_api_DeviceT device;
     device.hwVer = deviceInfo.hwVer;
     device.tuner = static_cast<sdrplay_api_TunerSelectT>(deviceInfo.tuner);
@@ -101,9 +106,9 @@ bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
 
     auto err = sdrplay_api_SelectDevice(&device);
     if (err != sdrplay_api_Success) {
-        impl->lastError = sdrplay_api_GetErrorString(err);
-        std::cerr << "Failed to select device: " << impl->lastError << std::endl;
-        return false;
+        std::string apiError = sdrplay_api_GetErrorString(err);
+        impl->lastError = apiError;
+        throw ApiException("Failed to select device: " + apiError);
     }
 
     // Store device handle
@@ -115,26 +120,29 @@ bool DeviceControl::selectDevice(const DeviceInfo& deviceInfo) {
     // Get device parameters
     err = sdrplay_api_GetDeviceParams(device.dev, &impl->deviceParams);
     if (err != sdrplay_api_Success) {
-        impl->lastError = sdrplay_api_GetErrorString(err);
-        std::cerr << "Failed to get device parameters: " << impl->lastError << std::endl;
-        return false;
+        std::string apiError = sdrplay_api_GetErrorString(err);
+        impl->lastError = apiError;
+        throw ApiException("Failed to get device parameters: " + apiError);
     }
 
     return true;
 }
 
 bool DeviceControl::releaseDevice() {
-    if (impl->currentDevice) {
-        auto err = sdrplay_api_ReleaseDevice(impl->currentDevice);
-        if (err != sdrplay_api_Success) {
-            impl->lastError = sdrplay_api_GetErrorString(err);
-            std::cerr << "Failed to release device: " << impl->lastError << std::endl;
-            return false;
-        }
-        delete impl->currentDevice;
-        impl->currentDevice = nullptr;
-        impl->deviceParams = nullptr;
+    if (!impl->currentDevice) {
+        throw DeviceException(ErrorCode::DEVICE_NOT_SELECTED, "No device selected to release");
     }
+    
+    auto err = sdrplay_api_ReleaseDevice(impl->currentDevice);
+    if (err != sdrplay_api_Success) {
+        std::string apiError = sdrplay_api_GetErrorString(err);
+        impl->lastError = apiError;
+        throw ApiException("Failed to release device: " + apiError);
+    }
+    
+    delete impl->currentDevice;
+    impl->currentDevice = nullptr;
+    impl->deviceParams = nullptr;
     return true;
 }
 
