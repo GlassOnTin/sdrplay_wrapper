@@ -65,9 +65,35 @@ if len(devices) > 0:
 cd build
 ctest
 
-# Python tests
-PYTHONPATH=. python3 -m unittest discover tests
+# Python tests (new test runner)
+python3 tests/test_sdrplay.py
+
+# Alternatively, run specific tests:
+PYTHONPATH=. python3 -m unittest tests/test_sdrplay_parameters.py
 ```
+
+## Troubleshooting
+
+If you encounter the error "ImportError: cannot import name '_sdrplay' from partially initialized module 'sdrplay'", try these solutions:
+
+1. Make sure you have built the library correctly:
+   ```bash
+   mkdir -p build && cd build
+   cmake ..
+   make
+   ```
+
+2. The Python module should be used as shown in the example:
+   ```python
+   import sdrplay
+   # Create a device and work with it
+   device = sdrplay.Device()
+   ```
+
+3. Run the example script to verify the installation:
+   ```bash
+   python3 example.py
+   ```
 
 ## License
 
