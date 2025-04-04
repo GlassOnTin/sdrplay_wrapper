@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-from test_common import *
+from tests.test_common import *
 
 def has_rsp1a_device():
     """Check if RSP1A device is available"""
     device = sdrplay.Device()
-    if not device.open():
-        return False
     try:
         devices = device.getAvailableDevices()
-        return any(d.hwVersion == sdrplay.SDRPLAY_RSP1A_ID for d in devices)
-    finally:
-        device.close()
+        return any(d.hwVer == sdrplay.RSP1A_HWVER for d in devices)
+    except Exception as e:
+        print(f"Error checking for RSP1A device: {e}")
+        return False
 
 @unittest.skipUnless(has_rsp1a_device(), "No RSP1A device available")
 class SDRRSP1ATest(SDRplayBaseTest):

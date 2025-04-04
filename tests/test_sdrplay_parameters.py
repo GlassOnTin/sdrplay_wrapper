@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from test_common import SDRplayBaseTest
+from tests.test_common import SDRplayBaseTest
 
 class SDRplayParametersTest(SDRplayBaseTest):
     """Tests for parameters common to all devices"""

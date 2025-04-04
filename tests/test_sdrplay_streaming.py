@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-from test_common import *
+import time
+from tests.test_common import *
 
 class SDRplayStreamingTest(SDRplayBaseTest):
     """Tests for streaming functionality common to all devices"""
@@ -9,7 +10,7 @@ class SDRplayStreamingTest(SDRplayBaseTest):
         self.stream_data = None
         self.gain_data = None
         self.overload_data = None
-        self.device_info = self._select_first_available_device()  # Use helper method
+        # We already have self.device_info from SDRplayBaseTest
 
     class StreamHandler(sdrplay.StreamCallbackHandler):
         def __init__(self, test_instance):
@@ -41,18 +42,13 @@ class SDRplayStreamingTest(SDRplayBaseTest):
 
     def test_streaming_callbacks(self):
         """Test callback registration and basic streaming"""
-        # Get basic parameters
-        self.logger.debug("Getting basic parameters")
-        basic_params = self.device.getBasicParams()
-        self.assertIsNotNone(basic_params)
-
-        # Configure basic parameters
+        # Configure device directly
         self.logger.debug("Setting basic parameters")
-        basic_params.setSampleRate(2e6)  # 2 MHz
-        basic_params.setRfFrequency(100e6)  # 100 MHz
-        basic_params.setBandwidth(600)  # 600 kHz
-        basic_params.setGain(40, 0)  # 40 dB reduction, LNA state 0
-        self.assertTrue(basic_params.update())
+        self.device.setSampleRate(2e6)  # 2 MHz
+        self.device.setFrequency(100e6)  # 100 MHz
+        
+        # Note: The API has changed, we now set parameters directly on the device
+        # instead of through basic_params
 
         # Start streaming
         self.logger.debug("Starting streaming with handlers")

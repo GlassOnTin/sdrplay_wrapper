@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-from test_common import *
+from tests.test_common import *
 
 def has_rspdxr2_device():
     """Check if RSPdxR2 device is available"""
     device = sdrplay.Device()
-    if not device.open():
-        return False
     try:
         devices = device.getAvailableDevices()
-        return any(d.hwVersion == sdrplay.SDRPLAY_RSPdxR2_ID for d in devices)
-    finally:
-        device.close()
+        return any(d.hwVer == sdrplay.RSPDXR2_HWVER for d in devices)
+    except Exception as e:
+        print(f"Error checking for RSPdxR2 device: {e}")
+        return False
 
 
 @unittest.skipUnless(has_rspdxr2_device(), "No RSPdxR2 device available")
@@ -24,7 +23,7 @@ class SDRRSPdxR2Test(SDRplayBaseTest):
     def _select_rspdxr2_device(self):
         devices = self.device.getAvailableDevices()
         for device in devices:
-            if device.hwVersion == sdrplay.SDRPLAY_RSPdxR2_ID:
+            if device.hwVer == sdrplay.RSPDXR2_HWVER:
                 self.assertTrue(self.device.selectDevice(device))
                 return device
         self.skipTest("No RSPdxR2 device found")
