@@ -6,10 +6,18 @@
 
 using namespace sdrplay;
 
+// Forward declarations for tests
+namespace sdrplay {
+class StreamCallbackHandler;
+class GainCallbackHandler;
+class PowerOverloadCallbackHandler;
+}
+
 class MockDeviceControl : public DeviceControl {
 public:
     double freq = 100.0e6;
     double rate = 2.0e6;
+    bool streaming = false;
 
     void setFrequency(double f) override { freq = f; }
     double getFrequency() const override { return freq; }
@@ -29,6 +37,17 @@ public:
     void setLNAState(int) override {}
     void setHDRMode(bool) override {}
     void setBiasTEnabled(bool) override {}
+    
+    // Streaming API mock implementations
+    bool initializeStreaming() override { return true; }
+    bool startStreaming() override { streaming = true; return true; }
+    bool stopStreaming() override { streaming = false; return true; }
+    bool isStreaming() const override { return streaming; }
+    
+    // Callback registration mocks
+    void setStreamCallback(StreamCallbackHandler*) override {}
+    void setGainCallback(GainCallbackHandler*) override {}
+    void setPowerOverloadCallback(PowerOverloadCallbackHandler*) override {}
 };
 
 void testDeviceCreation() {

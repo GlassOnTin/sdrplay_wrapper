@@ -127,16 +127,25 @@ RspDxR2Params* Device::getRspDxR2Params() {
 // Streaming API
 bool Device::registerStreamCallback(StreamCallbackHandler* handler) {
     pimpl->streamCallback = handler;
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->setStreamCallback(handler);
+    }
     return true;
 }
 
 bool Device::registerGainCallback(GainCallbackHandler* handler) {
     pimpl->gainCallback = handler;
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->setGainCallback(handler);
+    }
     return true;
 }
 
 bool Device::registerPowerOverloadCallback(PowerOverloadCallbackHandler* handler) {
     pimpl->powerCallback = handler;
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->setPowerOverloadCallback(handler);
+    }
     return true;
 }
 
@@ -172,11 +181,19 @@ bool Device::startStreaming() {
     }
     #endif
     
-    // We would need to set up streaming through the SDRPlay API here
-    // This is a placeholder for now, as it requires additional SDRPlay API integration
-    std::cout << "Starting streaming (placeholder implementation)..." << std::endl;
-    pimpl->streaming = true;
+    // Initialize streaming parameters first
+    if (!pimpl->deviceControl->initializeStreaming()) {
+        std::cerr << "Failed to initialize streaming" << std::endl;
+        return false;
+    }
     
+    // Start the actual streaming process
+    if (!pimpl->deviceControl->startStreaming()) {
+        std::cerr << "Failed to start streaming" << std::endl;
+        return false;
+    }
+    
+    pimpl->streaming = true;
     return true;
 }
 
@@ -185,15 +202,20 @@ bool Device::stopStreaming() {
         return false;
     }
     
-    // We would need to stop streaming through the SDRPlay API here
-    // This is a placeholder for now
-    std::cout << "Stopping streaming (placeholder implementation)..." << std::endl;
-    pimpl->streaming = false;
+    // Stop streaming through the SDRPlay API
+    bool success = pimpl->deviceControl->stopStreaming();
+    if (!success) {
+        std::cerr << "Error while stopping streaming" << std::endl;
+    }
     
-    return true;
+    pimpl->streaming = false;
+    return success;
 }
 
 bool Device::isStreaming() const {
+    if (pimpl->deviceControl) {
+        return pimpl->deviceControl->isStreaming();
+    }
     return pimpl->streaming;
 }
 

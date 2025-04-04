@@ -64,15 +64,39 @@ if len(devices) > 0:
 
 ### Streaming API
 
+The SDRPlay wrapper provides a callback-based streaming API that allows you to receive IQ samples and handle events from the device. The key callback interfaces are:
+
+- **StreamCallbackHandler**: Receives IQ sample data from the device
+- **GainCallbackHandler**: Notified when gain changes occur
+- **PowerOverloadCallbackHandler**: Notified when power overload conditions occur
+
+Here's a simple example:
+
 ```python
 import sdrplay
+import numpy as np
 import time
 
 # Define your callback handlers
 class StreamHandler(sdrplay.StreamCallbackHandler):
+    def __init__(self):
+        # Note: For abstract classes in SWIG, don't call the parent constructor
+        self.buffer = []
+        self.total_samples = 0
+    
     def handleStreamData(self, xi, xq, numSamples):
+        # Convert to numpy arrays for easier processing
+        i_data = np.array(xi[:numSamples])
+        q_data = np.array(xq[:numSamples])
+        
         # Process IQ samples here
         print(f"Received {numSamples} samples")
+        self.total_samples += numSamples
+        
+        # Store some samples for later analysis
+        if len(self.buffer) < 5:
+            complex_samples = i_data[:10] + 1j * q_data[:10]
+            self.buffer.append(complex_samples)
 
 class GainHandler(sdrplay.GainCallbackHandler):
     def handleGainChange(self, gRdB, lnaGRdB, currGain):
@@ -114,6 +138,22 @@ if len(devices) > 0:
     
     # When done
     device.releaseDevice()
+```
+
+### Included Example
+
+The repository includes a more complete example script `example_streaming.py` that demonstrates streaming with:
+
+- Command-line argument parsing for frequency, sample rate, and gain settings
+- Clean signal handling for graceful termination
+- Basic signal statistics calculation
+- Device-specific parameter configuration
+- Full error handling and logging
+
+You can run it with:
+
+```bash
+python3 example_streaming.py --freq 100.0 --samplerate 2.0 --gain 40 --time 10
 ```
 
 ## Testing

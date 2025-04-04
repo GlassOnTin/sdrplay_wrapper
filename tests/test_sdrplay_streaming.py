@@ -40,14 +40,14 @@ class SDRplayStreamingTest(SDRplayBaseTest):
             self.test_instance.logger.debug(f"Power overload: {isOverloaded}")
             self.test_instance.overload_data = isOverloaded
 
-    @unittest.skip("Streaming API implementation is incomplete")
     def test_streaming_callbacks(self):
         """Test callback registration and basic streaming"""
-        # NOTE: This test is skipped because the streaming API implementation is incomplete
-        # We've added the necessary methods but without a complete SDRPlay API integration
-        # the test will not pass. The test code is kept for reference.
-        self.logger.info("This test is skipped until streaming API is implemented")
-        self.skipTest("Streaming API implementation is incomplete")
+        self.logger.info("Testing streaming callback registration and control")
+        
+        # Skip if no device available
+        if not hasattr(self, 'device') or not self.device or not self.device_info:
+            self.skipTest("No device available for testing")
+            return
         
         # Check initial streaming state
         self.assertFalse(self.device.isStreaming())
@@ -57,10 +57,10 @@ class SDRplayStreamingTest(SDRplayBaseTest):
         gain_cb = self.GainHandler(self)
         power_cb = self.PowerHandler(self)
         
-        # Register callbacks (would be used in actual implementation)
-        # self.device.registerStreamCallback(stream_cb)
-        # self.device.registerGainCallback(gain_cb)
-        # self.device.registerPowerOverloadCallback(power_cb)
+        # Register callbacks
+        self.device.registerStreamCallback(stream_cb)
+        self.device.registerGainCallback(gain_cb)
+        self.device.registerPowerOverloadCallback(power_cb)
         
         # Start streaming
         result = self.device.startStreaming()

@@ -22,6 +22,23 @@ public:
     // RSPdxR2 specific controls implementation
     void setHDRMode(bool enable) override;
     void setBiasTEnabled(bool enable) override;
+    
+    // Streaming control methods
+    bool initializeStreaming() override;
+    bool startStreaming() override;
+    bool stopStreaming() override;
+    bool isStreaming() const override;
+    
+    // Callback registration
+    void setStreamCallback(StreamCallbackHandler* handler) override;
+    void setGainCallback(GainCallbackHandler* handler) override;
+    void setPowerOverloadCallback(PowerOverloadCallbackHandler* handler) override;
+    
+    // Static callback handlers for SDRPlay API
+    static void streamCallback(short* xi, short* xq, sdrplay_api_StreamCbParamsT* params, 
+                              unsigned int numSamples, unsigned int reset, void* cbContext);
+    static void eventCallback(sdrplay_api_EventT eventId, sdrplay_api_TunerSelectT tuner, 
+                             sdrplay_api_EventParamsT* params, void* cbContext);
 
 private:
     struct RSPdxR2Impl;
