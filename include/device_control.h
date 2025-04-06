@@ -7,11 +7,6 @@
 
 namespace sdrplay {
 
-// Forward declarations for callback handlers
-class StreamCallbackHandler;
-class GainCallbackHandler;
-class PowerOverloadCallbackHandler;
-
 class DeviceControl {
 public:
     DeviceControl();
@@ -43,17 +38,6 @@ public:
     // RSPdxR2 specific controls
     virtual void setHDRMode(bool enable) = 0;
     virtual void setBiasTEnabled(bool enable) = 0;
-    
-    // Streaming control methods
-    virtual bool initializeStreaming() = 0;
-    virtual bool startStreaming() = 0;
-    virtual bool stopStreaming() = 0;
-    virtual bool isStreaming() const = 0;
-    
-    // Callback registration
-    virtual void setStreamCallback(StreamCallbackHandler* handler) = 0;
-    virtual void setGainCallback(GainCallbackHandler* handler) = 0;
-    virtual void setPowerOverloadCallback(PowerOverloadCallbackHandler* handler) = 0;
 
 protected:
     struct Impl;
