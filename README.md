@@ -41,14 +41,15 @@ Notes:
 - Added device detection and connection support
 - Implemented frequency tuning and parameter control
 - Added support for RSP1A and RSPdxR2 devices
-- Implemented basic FM demodulation and audio processing
 - Added device-specific parameter configuration
 - Updated SWIG interface for Python integration
 - Fixed device registry and implemented clearFactories method
 - Added debug logging for troubleshooting
+- Removed problematic streaming implementation to prepare for redesign
 
-**Note**: The streaming callback functionality is currently limited due to SWIG binding issues. 
-See `IMPLEMENTATION_STATUS.md` for more details on what's working and what's planned.
+**IMPORTANT**: The streaming functionality has been temporarily removed and is NOT currently implemented. 
+A new streaming implementation is planned for a future release. The streaming code examples shown below
+are for reference only and will not work with the current version.
 
 ## Usage
 
@@ -87,13 +88,15 @@ if len(devices) > 0:
 
 ### Streaming API
 
-The SDRPlay wrapper provides a callback-based streaming API that allows you to receive IQ samples and handle events from the device. The key callback interfaces are:
+**NOTE: This section describes the planned streaming API that will be implemented in a future release.**
 
-- **StreamCallbackHandler**: Receives IQ sample data from the device
-- **GainCallbackHandler**: Notified when gain changes occur
-- **PowerOverloadCallbackHandler**: Notified when power overload conditions occur
+The future SDRPlay wrapper will provide a callback-based streaming API to receive IQ samples and handle events from the device. The planned callback interfaces are:
 
-Here's a simple example:
+- **StreamCallbackHandler**: Will receive IQ sample data from the device
+- **GainCallbackHandler**: Will be notified when gain changes occur
+- **PowerOverloadCallbackHandler**: Will be notified when power overload conditions occur
+
+A simple usage example will look like this (NOT YET IMPLEMENTED):
 
 ```python
 import sdrplay
@@ -163,12 +166,14 @@ if len(devices) > 0:
     device.releaseDevice()
 ```
 
-### Callback Bridge (Recommended Approach)
+### Future Callback Bridge Implementation
 
-To overcome limitations in the SWIG director callbacks, a more robust callback bridge implementation is provided:
+The future implementation may include a more robust callback bridge to overcome limitations in the SWIG director callbacks:
 
 ```python
-from sdrplay.callback_bridge import CallbackBridge
+# NOTE: This code is for reference only and is NOT yet implemented
+
+from sdrplay.callback_bridge import CallbackBridge  # Not yet available
 
 # Create and initialize the bridge
 bridge = CallbackBridge()
@@ -199,21 +204,21 @@ time.sleep(10)
 bridge.stop_streaming()
 ```
 
-### Included Example
+### Planned Example Applications
 
-The repository includes example applications that demonstrate the callback bridge functionality:
+Future releases will include example applications demonstrating the callback bridge functionality:
 
-1. **fm_radio_demo.py**: A simple FM radio that tunes to a specified frequency and plays audio
-2. **fm_scanner_demo.py**: An FM band scanner that finds active stations
+1. **fm_radio.py**: A simple FM radio that tunes to a specified frequency and plays audio
+2. **fm_scanner.py**: An FM band scanner that finds active stations
 
-You can run them with:
+Usage will be something like:
 
 ```bash
 # Play FM radio at 100.5 MHz
-./fm_radio_demo.py 100.5
+./fm_radio.py 100.5
 
 # Scan the FM band from 88 to 108 MHz
-./fm_scanner_demo.py 88 108
+./fm_scanner.py 88 108
 ```
 
 ## Testing
