@@ -12,20 +12,43 @@ This is a Python wrapper for the SDRPlay API, supporting RSP1A and RSPdx-R2 devi
 
 ## Building
 
+### Linux
+
 ```bash
 mkdir -p build && cd build
 cmake ..
 make
 ```
 
+### Windows
+
+Using Visual Studio:
+
+```batch
+mkdir build
+cd build
+cmake -G "Visual Studio 17 2022" -D SDRPLAY_API_INCLUDE_DIR=C:/path/to/SDRplay/API/inc -D SDRPLAY_API_LIBRARY=C:/path/to/SDRplay/API/x64 -D SWIG_EXECUTABLE=C:/path/to/swigwin/swig.exe ..
+cmake --build . --config Release
+```
+
+Notes:
+- Use forward slashes in paths (e.g., `C:/path/to/SDRplay`)
+- For the `SDRPLAY_API_LIBRARY` parameter, specify the directory containing the .lib files, not the .lib file itself
+- Make sure to match the architecture (x64 or x86) with your Visual Studio configuration
+
 ## Recent Updates
 
-- Added streaming API support with callback registration
+- Added device detection and connection support
+- Implemented frequency tuning and parameter control
+- Added support for RSP1A and RSPdxR2 devices
+- Implemented basic FM demodulation and audio processing
+- Added device-specific parameter configuration
+- Updated SWIG interface for Python integration
 - Fixed device registry and implemented clearFactories method
-- Fixed Python bindings for RSPdxR2 device support
-- Added device detection and basic parameter control
-- Updated SWIG interface for better Python integration
-- Added debug logging to help diagnose device connection issues
+- Added debug logging for troubleshooting
+
+**Note**: The streaming callback functionality is currently limited due to SWIG binding issues. 
+See `IMPLEMENTATION_STATUS.md` for more details on what's working and what's planned.
 
 ## Usage
 
@@ -140,20 +163,57 @@ if len(devices) > 0:
     device.releaseDevice()
 ```
 
+### Callback Bridge (Recommended Approach)
+
+To overcome limitations in the SWIG director callbacks, a more robust callback bridge implementation is provided:
+
+```python
+from sdrplay.callback_bridge import CallbackBridge
+
+# Create and initialize the bridge
+bridge = CallbackBridge()
+if not bridge.initialize():
+    print("Failed to initialize!")
+    exit(1)
+
+# Register a callback function
+def process_iq(iq_data, num_samples):
+    # Process IQ data (complex numpy array)
+    signal_level = np.mean(np.abs(iq_data))
+    print(f"Received {num_samples} samples, signal level: {signal_level:.2f}")
+
+bridge.register_callback("my_processor", process_iq)
+
+# Configure device
+bridge.set_frequency(100.5e6)  # 100.5 MHz
+bridge.set_sample_rate(2.048e6)  # 2.048 MSPS
+bridge.set_gain_reduction(40)  # 40 dB gain reduction
+
+# Start streaming
+bridge.start_streaming()
+
+# Let it run for a while
+time.sleep(10)
+
+# Clean up
+bridge.stop_streaming()
+```
+
 ### Included Example
 
-The repository includes a more complete example script `example_streaming.py` that demonstrates streaming with:
+The repository includes example applications that demonstrate the callback bridge functionality:
 
-- Command-line argument parsing for frequency, sample rate, and gain settings
-- Clean signal handling for graceful termination
-- Basic signal statistics calculation
-- Device-specific parameter configuration
-- Full error handling and logging
+1. **fm_radio_demo.py**: A simple FM radio that tunes to a specified frequency and plays audio
+2. **fm_scanner_demo.py**: An FM band scanner that finds active stations
 
-You can run it with:
+You can run them with:
 
 ```bash
-python3 example_streaming.py --frequency 100.0e6 --sample-rate 2.0e6 --gain 40 --time 10
+# Play FM radio at 100.5 MHz
+./fm_radio_demo.py 100.5
+
+# Scan the FM band from 88 to 108 MHz
+./fm_scanner_demo.py 88 108
 ```
 
 ## Testing
@@ -171,6 +231,8 @@ PYTHONPATH=. python3 -m unittest tests/test_sdrplay_parameters.py
 ```
 
 ## Troubleshooting
+
+### Common Issues
 
 If you encounter the error "ImportError: cannot import name '_sdrplay' from partially initialized module 'sdrplay'", try these solutions:
 
@@ -192,6 +254,24 @@ If you encounter the error "ImportError: cannot import name '_sdrplay' from part
    ```bash
    python3 example.py
    ```
+
+### Windows-Specific Issues
+
+1. **Cannot find sdrplay_api.h**:
+   - Make sure SDRPLAY_API_INCLUDE_DIR points to the directory containing sdrplay_api.h
+   - Use forward slashes in paths: `C:/Program Files/SDRplay/API/inc`
+
+2. **CMake linking warnings**:
+   - When specifying SDRPLAY_API_LIBRARY, point to the directory containing the .lib file, not the .lib file itself
+   - Example: `-D SDRPLAY_API_LIBRARY=C:/Program Files/SDRplay/API/x64`
+
+3. **Python module import issues**:
+   - Check that the .pyd file (Windows Python extension) was built correctly in the sdrplay/ directory
+   - Verify that the site-packages directory contains both the .dist-info directory and the actual module files
+
+4. **DLL not found errors**:
+   - Ensure the SDRplay API DLL is in your system PATH or in the same directory as your Python application
+   - You may need to copy sdrplay_api.dll from the SDRplay API directory to your application directory
 
 ## License
 

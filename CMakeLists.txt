@@ -10,15 +10,33 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Find SDRplay API
 find_path(SDRPLAY_API_INCLUDE_DIR
     NAMES sdrplay_api.h
-    PATHS /usr/local/include
+    PATHS 
+        /usr/local/include
+        ENV SDRPLAY_API_INCLUDE_DIR
     REQUIRED
 )
 
-find_library(SDRPLAY_API_LIBRARY
-    NAMES sdrplay_api
-    PATHS /usr/local/lib
-    REQUIRED
-)
+if(WIN32)
+    find_library(SDRPLAY_API_LIBRARY
+        NAMES sdrplay_api
+        PATHS 
+            ENV SDRPLAY_API_LIBRARY
+            ${SDRPLAY_API_LIBRARY}
+        PATH_SUFFIXES 
+            x64 
+            x86
+            lib
+        REQUIRED
+    )
+    # If full lib file path was provided, extract the directory
+    get_filename_component(SDRPLAY_API_LIBRARY_DIR ${SDRPLAY_API_LIBRARY} DIRECTORY)
+else()
+    find_library(SDRPLAY_API_LIBRARY
+        NAMES sdrplay_api
+        PATHS /usr/local/lib
+        REQUIRED
+    )
+endif()
 
 # Define source files
 set(WRAPPER_SOURCES
@@ -30,6 +48,7 @@ set(WRAPPER_SOURCES
     src/device_impl/rsp1a_control.cpp
     src/device_impl/rspdxr2_control.cpp
     src/sdrplay_exception.cpp
+    src/callback_bridge.cpp
 )
 
 # Create library target
@@ -42,10 +61,21 @@ target_include_directories(sdrplay_wrapper
         ${SDRPLAY_API_INCLUDE_DIR}
 )
 
-target_link_libraries(sdrplay_wrapper
-    PRIVATE
-        ${SDRPLAY_API_LIBRARY}
-)
+if(WIN32 AND SDRPLAY_API_LIBRARY_DIR)
+    target_link_directories(sdrplay_wrapper
+        PRIVATE
+            ${SDRPLAY_API_LIBRARY_DIR}
+    )
+    target_link_libraries(sdrplay_wrapper
+        PRIVATE
+            sdrplay_api
+    )
+else()
+    target_link_libraries(sdrplay_wrapper
+        PRIVATE
+            ${SDRPLAY_API_LIBRARY}
+    )
+endif()
 
 # Testing configuration
 enable_testing()
@@ -110,11 +140,23 @@ if(BUILD_PYTHON_BINDINGS)
         SOURCES swig/sdrplay.i
     )
     
-    swig_link_libraries(sdrplay_python
-        sdrplay_wrapper
-        ${Python3_LIBRARIES}
-        ${SDRPLAY_API_LIBRARY}
-    )
+    if(WIN32 AND SDRPLAY_API_LIBRARY_DIR)
+        target_link_directories(sdrplay_python 
+            PRIVATE 
+                ${SDRPLAY_API_LIBRARY_DIR}
+        )
+        swig_link_libraries(sdrplay_python
+            sdrplay_wrapper
+            ${Python3_LIBRARIES}
+            sdrplay_api
+        )
+    else()
+        swig_link_libraries(sdrplay_python
+            sdrplay_wrapper
+            ${Python3_LIBRARIES}
+            ${SDRPLAY_API_LIBRARY}
+        )
+    endif()
     
     # Install SWIG-generated files to the correct location
     add_custom_command(TARGET sdrplay_python POST_BUILD
@@ -122,21 +164,43 @@ if(BUILD_PYTHON_BINDINGS)
             "${CMAKE_CURRENT_BINARY_DIR}/sdrplay.py" 
             "${PYTHON_MODULE_PATH}/sdrplay.py"
         COMMAND ${CMAKE_COMMAND} -E echo "from .sdrplay import *" > "${PYTHON_MODULE_PATH}/__init__.py"
+        # Create additional Python files if they don't exist
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${PYTHON_MODULE_PATH}"
+        COMMAND ${CMAKE_COMMAND} -E touch "${PYTHON_MODULE_PATH}/__init__.py"
     )
     
     # Clean Python files
-    add_custom_target(clean_python
-        COMMAND ${CMAKE_COMMAND} -E remove -f
-            "${PYTHON_MODULE_PATH}/sdrplay.py"
-            "${PYTHON_MODULE_PATH}/_sdrplay.so"
-            "${PYTHON_MODULE_PATH}/__init__.py"
-    )
+    if(WIN32)
+        add_custom_target(clean_python
+            COMMAND ${CMAKE_COMMAND} -E remove -f
+                "${PYTHON_MODULE_PATH}/sdrplay.py"
+                "${PYTHON_MODULE_PATH}/_sdrplay.pyd"
+                "${PYTHON_MODULE_PATH}/__init__.py"
+        )
+    else()
+        add_custom_target(clean_python
+            COMMAND ${CMAKE_COMMAND} -E remove -f
+                "${PYTHON_MODULE_PATH}/sdrplay.py"
+                "${PYTHON_MODULE_PATH}/_sdrplay.so"
+                "${PYTHON_MODULE_PATH}/__init__.py"
+        )
+    endif()
     
     # Set module output directory
-    set_target_properties(sdrplay_python PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${PYTHON_MODULE_PATH}"
-        OUTPUT_NAME _sdrplay
-        PREFIX ""
-        SUFFIX .so
-    )
+    if(WIN32)
+        set_target_properties(sdrplay_python PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY "${PYTHON_MODULE_PATH}"
+            RUNTIME_OUTPUT_DIRECTORY "${PYTHON_MODULE_PATH}"
+            OUTPUT_NAME _sdrplay
+            PREFIX ""
+            SUFFIX .pyd
+        )
+    else()
+        set_target_properties(sdrplay_python PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY "${PYTHON_MODULE_PATH}"
+            OUTPUT_NAME _sdrplay
+            PREFIX ""
+            SUFFIX .so
+        )
+    endif()
 endif()
