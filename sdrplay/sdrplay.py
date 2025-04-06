@@ -223,45 +223,6 @@ class DeviceInfoVector(object):
 
 # Register DeviceInfoVector in _sdrplay:
 _sdrplay.DeviceInfoVector_swigregister(DeviceInfoVector)
-class StreamCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_StreamCallbackHandler
-
-    def handleStreamData(self, xi, xq, numSamples):
-        return _sdrplay.StreamCallbackHandler_handleStreamData(self, xi, xq, numSamples)
-
-# Register StreamCallbackHandler in _sdrplay:
-_sdrplay.StreamCallbackHandler_swigregister(StreamCallbackHandler)
-class GainCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_GainCallbackHandler
-
-    def handleGainChange(self, gRdB, lnaGRdB, currGain):
-        return _sdrplay.GainCallbackHandler_handleGainChange(self, gRdB, lnaGRdB, currGain)
-
-# Register GainCallbackHandler in _sdrplay:
-_sdrplay.GainCallbackHandler_swigregister(GainCallbackHandler)
-class PowerOverloadCallbackHandler(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
-
-    def __init__(self, *args, **kwargs):
-        raise AttributeError("No constructor defined - class is abstract")
-    __repr__ = _swig_repr
-    __swig_destroy__ = _sdrplay.delete_PowerOverloadCallbackHandler
-
-    def handlePowerOverload(self, isOverloaded):
-        return _sdrplay.PowerOverloadCallbackHandler_handlePowerOverload(self, isOverloaded)
-
-# Register PowerOverloadCallbackHandler in _sdrplay:
-_sdrplay.PowerOverloadCallbackHandler_swigregister(PowerOverloadCallbackHandler)
 
 def initializeDeviceRegistry():
     return _sdrplay.initializeDeviceRegistry()
@@ -452,24 +413,6 @@ class Device(object):
 
     def getRspDxR2Params(self):
         return _sdrplay.Device_getRspDxR2Params(self)
-
-    def registerStreamCallback(self, handler):
-        return _sdrplay.Device_registerStreamCallback(self, handler)
-
-    def registerGainCallback(self, handler):
-        return _sdrplay.Device_registerGainCallback(self, handler)
-
-    def registerPowerOverloadCallback(self, handler):
-        return _sdrplay.Device_registerPowerOverloadCallback(self, handler)
-
-    def startStreaming(self):
-        return _sdrplay.Device_startStreaming(self)
-
-    def stopStreaming(self):
-        return _sdrplay.Device_stopStreaming(self)
-
-    def isStreaming(self):
-        return _sdrplay.Device_isStreaming(self)
 
 # Register Device in _sdrplay:
 _sdrplay.Device_swigregister(Device)

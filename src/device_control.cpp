@@ -9,12 +9,6 @@ struct DeviceControl::Impl {
     sdrplay_api_DeviceT* currentDevice{nullptr};
     sdrplay_api_DeviceParamsT* deviceParams{nullptr};
     std::string lastError;
-    bool streaming{false};
-    
-    // Callback handlers
-    StreamCallbackHandler* streamCallback{nullptr};
-    GainCallbackHandler* gainCallback{nullptr};
-    PowerOverloadCallbackHandler* powerCallback{nullptr};
 };
 
 DeviceControl::DeviceControl() : impl(std::make_unique<Impl>()) {}
