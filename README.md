@@ -9,6 +9,8 @@ This is a Python wrapper for the SDRPlay API, supporting RSP1A and RSPdx-R2 devi
 - SWIG 4.0 or newer
 - CMake 3.12 or newer
 - Python 3.8 or newer
+- NumPy (for streaming functionality)
+- SciPy (for signal processing in examples)
 
 ## Building
 
@@ -45,7 +47,8 @@ Notes:
 - Updated SWIG interface for Python integration
 - Fixed device registry and implemented clearFactories method
 - Added debug logging for troubleshooting
-- Removed streaming implementation
+- **NEW: Added streaming functionality with NumPy integration**
+- **NEW: Added FM radio receiver example**
 
 ## Usage
 
@@ -53,6 +56,9 @@ Notes:
 
 ```python
 import sdrplay
+
+# Initialize the device registry
+sdrplay.initializeDeviceRegistry()
 
 # Create a device
 device = sdrplay.Device()
@@ -70,17 +76,140 @@ if len(devices) > 0:
     device.setSampleRate(2e6)   # 2 MHz
     
     # Get device-specific parameters
-    if device_info.hwVer == sdrplay.RSPDXR2_HWVER:
-        rspdxr2_params = device.getRspDxR2Params()
-        # Configure RSPdxR2-specific features
-    
-    elif device_info.hwVer == sdrplay.RSP1A_HWVER:
+    if devices[0].hwVer == sdrplay.RSP1A_HWVER:
         rsp1a_params = device.getRsp1aParams()
         # Configure RSP1A-specific features
+        rsp1a_params.setGainReduction(40)  # Set gain reduction to 40 dB
+        rsp1a_params.setLNAState(0)        # Set LNA state
+    
+    elif devices[0].hwVer == sdrplay.RSPDXR2_HWVER:
+        rspdxr2_params = device.getRspDxR2Params()
+        # Configure RSPdxR2-specific features
         
     # When done
     device.releaseDevice()
 ```
+
+### Streaming Example
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sdrplay import *
+
+# SampleCallbackHandler is a class that receives samples
+class MySampleHandler(SampleCallbackHandler):
+    def __init__(self):
+        SampleCallbackHandler.__init__(self)
+        self.samples = []
+        
+    def handleSamples(self, samples, count):
+        # Convert samples to numpy array
+        array_slice = np.array([complex(samples[i].real, samples[i].imag) 
+                      for i in range(count)])
+        self.samples.extend(array_slice)
+
+# Initialize the device registry
+initializeDeviceRegistry()
+
+# Create and configure the device
+device = Device()
+devices = device.getAvailableDevices()
+if devices:
+    device.selectDevice(devices[0])
+    device.setFrequency(100e6)  # 100 MHz
+    device.setSampleRate(2e6)   # 2 MHz
+    
+    # Create the sample handler
+    handler = MySampleHandler()
+    
+    # Set the callback and start streaming
+    device.setPythonSampleCallback(handler)
+    device.startStreaming()
+    
+    # Stream for 5 seconds
+    import time
+    time.sleep(5)
+    
+    # Stop streaming and release the device
+    device.stopStreaming()
+    device.setPythonSampleCallback(None)
+    device.releaseDevice()
+    
+    # Process the collected samples
+    if handler.samples:
+        # Create a simple spectrum plot
+        plt.figure(figsize=(10, 6))
+        plt.psd(handler.samples, NFFT=1024, Fs=2e6, Fc=100e6)
+        plt.title('Spectrum')
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Power Spectral Density (dB/Hz)')
+        plt.savefig('spectrum.png')
+        print("Spectrum saved to spectrum.png")
+```
+
+### Direct Read Example
+
+```python
+import numpy as np
+from sdrplay import *
+
+# Initialize the device registry
+initializeDeviceRegistry()
+
+# Create and configure the device
+device = Device()
+devices = device.getAvailableDevices()
+if devices:
+    device.selectDevice(devices[0])
+    device.setFrequency(100e6)  # 100 MHz
+    device.setSampleRate(2e6)   # 2 MHz
+    
+    # Start streaming
+    device.startStreaming()
+    
+    # Read samples directly
+    import time
+    start_time = time.time()
+    all_samples = np.array([], dtype=np.complex64)
+    
+    while time.time() - start_time < 5:  # Read for 5 seconds
+        # Check if samples are available
+        available = device.samplesAvailable()
+        
+        if available > 0:
+            # Read samples directly to a NumPy array
+            samples = device.readSamplesToNumpy(available)
+            all_samples = np.append(all_samples, samples)
+            
+        time.sleep(0.01)
+    
+    # Stop streaming and release the device
+    device.stopStreaming()
+    device.releaseDevice()
+    
+    print(f"Collected {len(all_samples)} samples")
+```
+
+### FM Radio Receiver Example
+
+A complete FM radio receiver example is included in `fm_radio_player.py`. It uses the streaming functionality to receive FM radio signals, demodulates them, and plays the audio through your computer's speakers.
+
+To run the FM receiver:
+
+```bash
+python3 fm_radio_player.py --freq 100.3e6
+```
+
+Options:
+- `--freq`: FM station frequency in Hz (default: 100.3 MHz)
+- `--sample-rate`: Sample rate in Hz (default: 2 MHz)
+- `--gain`: Gain reduction in dB (default: 40 dB)
+- `--lna`: LNA state (default: 0)
+
+During operation, you can:
+- Enter `t 104.3` to tune to 104.3 MHz
+- Enter `q` to quit
 
 ## Testing
 
@@ -95,6 +224,11 @@ python3 tests/test_sdrplay.py
 # Alternatively, run specific tests:
 PYTHONPATH=. python3 -m unittest tests/test_sdrplay_parameters.py
 ```
+
+## Example Programs
+
+- `streaming_example.py` - Demonstrates basic streaming functionality
+- `fm_radio_player.py` - FM radio receiver with live audio output
 
 ## Troubleshooting
 

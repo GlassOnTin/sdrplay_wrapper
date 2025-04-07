@@ -98,4 +98,89 @@ RspDxR2Params* Device::getRspDxR2Params() {
     return pimpl->rspdxr2Params.get();
 }
 
+bool Device::startStreaming(bool enableDcCorrection, 
+                           bool enableIqCorrection,
+                           int decimationFactor) {
+    if (!pimpl->deviceControl) {
+        return false;
+    }
+    
+    StreamingParams params;
+    params.enableDCCorrection = enableDcCorrection;
+    params.enableIQCorrection = enableIqCorrection;
+    
+    if (decimationFactor > 1) {
+        params.decimate = true;
+        params.decimationFactor = decimationFactor;
+    }
+    
+    return pimpl->deviceControl->startStreaming(params);
+}
+
+bool Device::stopStreaming() {
+    if (!pimpl->deviceControl) {
+        return false;
+    }
+    
+    return pimpl->deviceControl->stopStreaming();
+}
+
+bool Device::isStreaming() const {
+    if (!pimpl->deviceControl) {
+        return false;
+    }
+    
+    return pimpl->deviceControl->isStreaming();
+}
+
+void Device::setSampleCallback(std::function<void(const std::complex<short>*, size_t)> callback) {
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->setSampleCallback(callback);
+    }
+}
+
+void Device::setEventCallback(std::function<void(EventType, const EventParams&)> callback) {
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->setEventCallback(callback);
+    }
+}
+
+bool Device::waitForSamples(size_t count, unsigned int timeoutMs) {
+    if (!pimpl->deviceControl) {
+        return false;
+    }
+    
+    return pimpl->deviceControl->waitForSamples(count, timeoutMs);
+}
+
+size_t Device::readSamples(std::complex<short>* buffer, size_t maxCount) {
+    if (!pimpl->deviceControl) {
+        return 0;
+    }
+    
+    return pimpl->deviceControl->readSamples(buffer, maxCount);
+}
+
+size_t Device::samplesAvailable() const {
+    if (!pimpl->deviceControl) {
+        return 0;
+    }
+    
+    return pimpl->deviceControl->samplesAvailable();
+}
+
+bool Device::hasBufferOverflow() const {
+    if (!pimpl->deviceControl) {
+        return false;
+    }
+    
+    return pimpl->deviceControl->hasBufferOverflow();
+}
+
+void Device::resetBuffer() {
+    if (pimpl->deviceControl) {
+        pimpl->deviceControl->resetBuffer();
+    }
+}
+
 } // namespace sdrplay

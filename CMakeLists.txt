@@ -48,6 +48,7 @@ set(WRAPPER_SOURCES
     src/device_impl/rsp1a_control.cpp
     src/device_impl/rspdxr2_control.cpp
     src/sdrplay_exception.cpp
+    src/callback_wrapper.cpp
 )
 
 # Create library target
